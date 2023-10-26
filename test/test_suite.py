@@ -1,3 +1,5 @@
+
+# To import the entire test suite...
 from sqlalchemy.testing.suite import *
 
 from sqlalchemy.testing.suite import (

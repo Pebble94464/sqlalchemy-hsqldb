@@ -21,6 +21,9 @@ Installation
 Configuration
 -------------
 
+# dialect+driver://username:password@host:port/database
+
+
 Usage
 -----
 
@@ -29,6 +32,14 @@ Troubleshooting
 
 Contributing
 ------------
+
+testing
+-------
+
+cd /path/to/sqlalchemy
+	pytest -v \
+		--requirements sqlalchemy_hsqldb.requirements:Requirements \
+		--dburi hsqldb+jaydebeapi://SA:@localhost/hsqldb_test
 
 Changelog
 ---------
