@@ -7,7 +7,7 @@
 # The registry module provides a means of installing dialect entrypoints without the use of setuptools
 from sqlalchemy.dialects import registry
 registry.register(
-	"hsqldb.jaydebeapi", "sqlalchemy_hsqldb.jaydebeapi", "HSQLDB_dialect"
+	"hsqldb.jaydebeapi", "sqlalchemy_hsqldb.jaydebeapi", "HyperSqlDialect_jaydebeapi"
 )
 
 import pytest

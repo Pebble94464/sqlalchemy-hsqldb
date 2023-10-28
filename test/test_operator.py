@@ -1,3 +1,13 @@
+"""
+JSN note:
+sqlalchemy/README.dialects.rst mentions dialect specific tests.
+    test_<dialect_specific_test>.py
+
+This file appears to be one such test, copied from sqlalchemy-access
+
+TODO: Remove this file if unused.
+"""
+
 from sqlalchemy import testing, Table, Column, Integer
 from sqlalchemy.testing import fixtures, eq_
 

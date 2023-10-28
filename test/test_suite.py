@@ -1,3 +1,5 @@
+# TODO: This file is based on the one for Access. Needs adapting.
+
 
 # To import the entire test suite...
 from sqlalchemy.testing.suite import *
