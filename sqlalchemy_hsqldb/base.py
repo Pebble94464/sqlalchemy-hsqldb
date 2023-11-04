@@ -4,6 +4,7 @@
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.base import Connection
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 
@@ -140,4 +141,26 @@ class HyperSqlDialect(default.DefaultDialect):
 		It is replaced by import_dbapi, which has been implemented in jaydebeapi.py
 		"""
 		raise NotImplementedError
+
+	def _get_default_schema_name(self, connection):
+		return connection.exec_driver_sql("VALUES(CURRENT_SCHEMA)").scalar()
+
+	def _has_table_query():
+		pass
+
+	@reflection.cache
+	def has_table(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		assert schema is not None
+		cursorResult = connection.exec_driver_sql(
+			f"""SELECT * FROM "INFORMATION_SCHEMA"."TABLES"
+			WHERE TABLE_SCHEMA = '{schema}'
+			AND TABLE_NAME = '{table_name}'
+			""")
+		return cursorResult.first() is not None
+	# Tables are identified by catalog, schema, and table name in HSQLDB.
+	# It's possible two tables could share matching schema and table names,
+	# but in a different catalog, which might break the function above.
 
