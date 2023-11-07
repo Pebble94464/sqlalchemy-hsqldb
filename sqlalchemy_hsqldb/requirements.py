@@ -5,9 +5,15 @@
 # The properties of the Requirments class below have been copied in from SuiteRequiements as-is.
 # Still need to consider which properties are appropriate for HSQLDB and set them accordingly.
 
-
-from sqlalchemy.testing.requirements import SuiteRequirements
+import platform
+from sqlalchemy.testing import asyncio as _test_asyncio
 from sqlalchemy.testing import exclusions
+from sqlalchemy.testing.exclusions import only_on
+from sqlalchemy import create_engine
+from sqlalchemy import util
+from sqlalchemy.pool import QueuePool
+from sqlalchemy.testing.requirements import SuiteRequirements
+
 
 class Requirements(SuiteRequirements):
 
