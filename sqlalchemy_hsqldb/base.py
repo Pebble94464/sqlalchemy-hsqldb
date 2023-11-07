@@ -17,26 +17,136 @@ from sqlalchemy import pool
 # from .types import INTERVAL
 
 
+# List of SQL Standard Keywords...
+RESERVED_WORDS_1 = set(
+"""ABS ALL ALLOCATE ALTER AND ANY ARE ARRAY AS ASENSITIVE ASYMMETRIC AT ATOMIC
+AUTHORIZATION AVG BEGIN BETWEEN BIGINT BINARY BLOB BOOLEAN BOTH BY CALL CALLED
+CARDINALITY CASCADED CASE CAST CEIL CEILING CHAR CHAR_LENGTH CHARACTER
+CHARACTER_LENGTH CHECK CLOB CLOSE COALESCE COLLATE COLLECT COLUMN COMMIT
+COMPARABLE CONDITION CONNECT CONSTRAINT CONVERT CORR CORRESPONDING COUNT
+COVAR_POP COVAR_SAMP CREATE CROSS CUBE CUME_DIST CURRENT CURRENT_CATALOG
+CURRENT_DATE CURRENT_DEFAULT_TRANSFORM_GROUP CURRENT_PATH CURRENT_ROLE
+CURRENT_SCHEMA CURRENT_TIME CURRENT_TIMESTAMP CURRENT_TRANSFORM_GROUP_FOR_TYPE
+CURRENT_USER CURSOR CYCLE DATE DAY DEALLOCATE DEC DECIMAL DECLARE DEFAULT
+DELETE DENSE_RANK DEREF DESCRIBE DETERMINISTIC DISCONNECT DISTINCT DO DOUBLE
+DROP DYNAMIC EACH ELEMENT ELSE ELSEIF END END_EXEC ESCAPE EVERY EXCEPT EXEC
+EXECUTE EXISTS EXIT EXP EXTERNAL EXTRACT FALSE FETCH FILTER FIRST_VALUE FLOAT
+FLOOR FOR FOREIGN FREE FROM FULL FUNCTION FUSION GET GLOBAL GRANT GROUP
+GROUPING HANDLER HAVING HOLD HOUR IDENTITY IN INDICATOR INNER INOUT INSENSITIVE
+INSERT INT INTEGER INTERSECT INTERSECTION INTERVAL INTO IS ITERATE JOIN LAG
+LANGUAGE LARGE LAST_VALUE LATERAL LEAD LEADING LEAVE LEFT LIKE LIKE_REGEX LN
+LOCAL LOCALTIME LOCALTIMESTAMP LOOP LOWER MATCH MAX MAX_CARDINALITY MEMBER
+MERGE METHOD MIN MINUTE MOD MODIFIES MODULE MONTH MULTISET NATIONAL NATURAL
+NCHAR NCLOB NEW NO NONE NORMALIZE NOT NTH_VALUE NTILE NULL NULLIF NUMERIC
+OCCURRENCES_REGEX OCTET_LENGTH OF OFFSET OLD ON ONLY OPEN OR ORDER OUT OUTER
+OVER OVERLAPS OVERLAY PARAMETER PARTITION PERCENT_RANK PERCENTILE_CONT
+PERCENTILE_DISC PERIOD POSITION POSITION_REGEX POWER PRECISION PREPARE PRIMARY
+PROCEDURE RANGE RANK READS REAL RECURSIVE REF REFERENCES REFERENCING REGR_AVGX
+REGR_AVGY REGR_COUNT REGR_INTERCEPT REGR_R2 REGR_SLOPE REGR_SXX REGR_SXY
+REGR_SYY RELEASE REPEAT RESIGNAL RESULT RETURN RETURNS REVOKE RIGHT ROLLBACK
+ROLLUP ROW ROW_NUMBER ROWS SAVEPOINT SCOPE SCROLL SEARCH SECOND SELECT
+SENSITIVE SESSION_USER SET SIGNAL SIMILAR SMALLINT SOME SPECIFIC SPECIFICTYPE
+SQL SQLEXCEPTION SQLSTATE SQLWARNING SQRT STACKED START STATIC STDDEV_POP
+STDDEV_SAMP SUBMULTISET SUBSTRING SUBSTRING_REGEX SUM SYMMETRIC SYSTEM
+SYSTEM_USER TABLE TABLESAMPLE THEN TIME TIMESTAMP TIMEZONE_HOUR TIMEZONE_MINUTE
+TO TRAILING TRANSLATE TRANSLATE_REGEX TRANSLATION TREAT TRIGGER TRIM TRIM_ARRAY
+TRUE TRUNCATE UESCAPE UNDO UNION UNIQUE UNKNOWN UNNEST UNTIL UPDATE UPPER USER
+USING VALUE VALUES VAR_POP VAR_SAMP VARBINARY VARCHAR VARYING WHEN WHENEVER
+WHERE WHILE WIDTH_BUCKET WINDOW WITH WITHIN WITHOUT YEAR"""
+.split())
+
+# List of SQL Keywords Disallowed as HyperSQL Identifiers...
+RESERVED_WORDS_2 = set(
+"""ALL AND ANY AS AT AVG BETWEEN BOTH BY CALL CASE CAST COALESCE CONVERT
+CORRESPONDING COUNT CREATE CROSS CUBE DEFAULT DISTINCT DROP ELSE EVERY EXCEPT
+EXISTS FETCH FOR FROM FULL GRANT GROUP GROUPING HAVING IN INNER INTERSECT INTO
+IS JOIN LEADING LEFT LIKE MAX MIN NATURAL NOT NULLIF ON OR ORDER OUTER PRIMARY
+REFERENCES RIGHT ROLLUP SELECT SET SOME STDDEV_POP STDDEV_SAMP SUM TABLE THEN
+TO TRAILING TRIGGER UNION UNIQUE USING VALUES VAR_POP VAR_SAMP WHEN WHERE WITH"""
+.split())
+
+# Special Function Keywords...
+RESERVED_WORDS_3 = set("CURDATE CURTIME NOW SYSDATE SYSTIMESTAMP TODAY".split())
+
 # TODO: Implement HyperSqlCompiler. About 400 lines. The derived subclass is also long.
 class HyperSqlCompiler(compiler.SQLCompiler):
 	pass
+#- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
+
+
+
 
 # TODO: Implement HyperSqlDDLCompiler. About 100 lines, 7 methods.
 class HyperSqlDDLCompiler(compiler.DDLCompiler):
 	pass
+#- DDLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
+
+
+
 
 # TODO: Implement HyperSqlTypeCompiler. About 50-150 lines, 12-25 methods.
 # TODO: Solve mystery. Access dialect has 'type_compiler', others have 'type_compiler_cls'
 class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
 	pass
+"""
+class GenericTypeCompiler(TypeCompiler):
+	class TypeCompiler(util.EnsureKWArg):
+		"Produces DDL specification for TypeEngine objects."
+
+"""
+
 
 # TODO: Implement HyperSqlIdentifierPreparer. About 20-55 lines, 2-5 methods.
 class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
+	# Reserved words can be a union of sets 1 and 3, or 2 and 3.
+	reserved_words = RESERVED_WORDS_1.union(RESERVED_WORDS_3)
+
 	pass
+"""
+class IdentifierPreparer:
+    "Handle quoting and case-folding of identifiers based on options."
+
+HSQLDB:
+SET DATABASE SQL NAMES { TRUE | FALSE }
+Allows or disallows the keywords as identifiers.
+The default mode is FALSE and allows the use of most keywords as identifiers.
+Even in this mode, FALSE, keywords cannot be used as USER or ROLE identifiers.
+When the mode is TRUE, none of the keywords listed below can be used as identifiers.
+All keywords can be used with double quotes as identifiers.
+
+[HSQLDB List of Keywords](https://hsqldb.org/doc/2.0/guide/lists-app.html)
+
+
+Identifiers must begin with a letter.
+Setting 'SET DATABASE SQL REGULAR NAMES FALSE' relaxes the rules and allows
+identifiers to begin with an underscore '_', and include dollar signs in the name.
+
+Identifier length must be between 1 and 128 characters.
+
+"""
+
+
 
 # TODO: Implement HyperSqlExecutionContext. About 55-165 lines, 2-8 methods.
 class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	pass
+
+"""
+https://docs.sqlalchemy.org/en/14/core/internals.html
+default.DefaultExecutionContext derives from an ExecutionContext.
+What is an execution context?
+interfaces.py, line 2907, describes it as...
+	"A messenger object for a Dialect that corresponds to a single execution."
+
+Dialect		line count
+-------		----------
+ms			150
+access		4
+mysql		20
+oracle		27
+pg			54
+"""
+
 
 
 class HyperSqlDialect(default.DefaultDialect):
@@ -164,3 +274,25 @@ class HyperSqlDialect(default.DefaultDialect):
 	# It's possible two tables could share matching schema and table names,
 	# but in a different catalog, which might break the function above.
 
+
+""" WIP:
+This is the SQL currently generated by the default dialect...
+
+CREATE TABLE sample_table (
+	"Respondent" BIGINT, 
+	"MainBranch" TEXT, 
+	"YearsCode" FLOAT,
+	...
+)
+
+For HSQLDB it should probably look something like this...
+
+CREATE MEMORY TABLE IF NOT EXIST "PUBLIC"."sample_table" (
+	"Respondent" BIGINT, 
+	"MainBranch" VARCHAR(80), 
+	"YearsCode" FLOAT, 
+)
+
+How do Dialects generate the correct data type?
+
+"""
