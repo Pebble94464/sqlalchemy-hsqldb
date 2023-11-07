@@ -5,6 +5,7 @@
 from .base import HyperSqlDialect
 from types import ModuleType
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.engine.url import URL
 
 class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 	"""HyperSqlDialect implementation of Dialect using JayDeBeApi as the driver."""
@@ -22,9 +23,14 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 		# Example 'jdbc_url' string:			"jdbc:hsqldb:hsql://localhost:9001/some_database_name"
 
 		# TODO: url is expected to be a URL object, so the line immediately below can be removed, possibly.
+		assert(type(url) is URL)
 		url = make_url(url)
 
-		jdbc_url = f'jdbc:hsqldb:hsql://{url.host}:{url.port}/{url.database}'
+		jdbc_url = 'jdbc:hsqldb:hsql://' + url.host
+		if url.port != None:
+			jdbc_url += ':' + str(url.port)
+		jdbc_url += '/' + url.database
+
 		connectionArgs = {
 			"jclassname": self.jclassname,
 			"url": jdbc_url,
