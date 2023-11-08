@@ -70,7 +70,19 @@ RESERVED_WORDS_3 = set("CURDATE CURTIME NOW SYSDATE SYSTIMESTAMP TODAY".split())
 
 # TODO: Implement HyperSqlCompiler. About 400 lines. The derived subclass is also long.
 class HyperSqlCompiler(compiler.SQLCompiler):
-	pass
+
+	def limit_clause(self, select, **kw):
+		#- raise NotImplementedError
+		text = ""
+		if select._limit_clause is not None:
+			text += " \n LIMIT " + self.process(select._limit_clause, **kw)
+		if select._offset_clause is not None:
+			if select._limit_clause is None:
+				text += "\n LIMIT 0"	# For HSQLDB zero means no limit
+			text += " OFFSET " + self.process(select._offset_clause, **kw)
+		return text
+
+
 #- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 
 
@@ -104,7 +116,7 @@ class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
 	pass
 """
 class IdentifierPreparer:
-    "Handle quoting and case-folding of identifiers based on options."
+	"Handle quoting and case-folding of identifiers based on options."
 
 HSQLDB:
 SET DATABASE SQL NAMES { TRUE | FALSE }
@@ -212,6 +224,15 @@ class HyperSqlDialect(default.DefaultDialect):
 	# refers to a label in the columns clause of the SELECT
 	#
 	# TODO: can be removed / set to True if supported. Access has it set to False.
+
+#################
+	supports_statement_cache = False
+	# All other dialects set supports_statement_cache to True.
+	# A release note indicates it should be set on a dialect, and that there's some check for it.
+	# It should also be set on derived classes.
+	# Excluding it caused test 'test_binary_roundtrip' to fail.
+	# Important detail, see: [Engine third-party caching](https://docs.sqlalchemy.org/en/20/core/connections.html#engine-thirdparty-caching)
+	# TODO: revise / remove above comments
 
 	#- ok
 	supports_is_distinct_from = True
