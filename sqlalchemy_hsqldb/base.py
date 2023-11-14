@@ -16,6 +16,11 @@ from sqlalchemy import pool
 # from .types import FLOAT
 # from .types import INTERVAL
 
+# Don't create types for UPPERCASE types that already exist and are used as-is. Import them instead...
+# TODO: import all UPPERCASE types that are used as-is...
+# e.g.	from sqlalchemy.types import INTEGER
+
+
 
 # List of SQL Standard Keywords...
 RESERVED_WORDS_1 = set(
@@ -68,6 +73,86 @@ TO TRAILING TRIGGER UNION UNIQUE USING VALUES VAR_POP VAR_SAMP WHEN WHERE WITH""
 # Special Function Keywords...
 RESERVED_WORDS_3 = set("CURDATE CURTIME NOW SYSDATE SYSTIMESTAMP TODAY".split())
 
+from sqlalchemy import types # TODO: relocate to top of file
+
+class JDBCBlobClient(types.BLOB):
+	__visit_name__ = "BLOB"
+
+	# def bind_processor(self, dialect):
+	# 	return None
+
+	def result_processor(self, dialect, coltype):
+		def process(value):
+			assert repr(value) == "<java object 'org.hsqldb.jdbc.JDBCBlobClient'>" # type check for Java object
+			return bytes(value.getBytes(1,int(value.length())))
+		return process
+
+# TODO: replace type checks for Java objects that are comparing strings, e.g. repr(value) == "<java object 'org.hsqldb.jdbc.JDBCBlobClient'>"
+
+
+class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by colspecs
+	__visit_name__ = "_HyperBoolean"
+	#- def __init__(self):
+	#- 	print('_HyperBoolean.__init__()') #-
+
+	#- TODO: remove Oracle function below...
+	def get_dbapi_type_oracle(self, dbapi):
+		return dbapi.NUMBER
+
+
+# WIP: what are colspecs?
+#		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
+#		"colspecs" is a required Dialect class member according to type_migration_guidelines.txt
+
+# 'colspecs' seems to map sqltypes to types defined in the dialect's types.py file.
+# default.DefaultDialect.colspecs: MutableMapping[Type[TypeEngine[Any]], Type[TypeEngine[Any]]] = {}
+#
+# type_migration_guidelines.txt reads...
+#		5. "colspecs" now is a dictionary of generic or uppercased types from sqlalchemy.types
+#		linked to types specified in the dialect.   Again, if a type in the dialect does not
+#		specify any special behavior for bind_processor() or result_processor() and does not
+#		indicate a special type only available in this database, it must be *removed* from the 
+#		module and from this dictionary.
+#
+
+# Map SQLAlchemy types to HSQLDB dialect types...
+colspecs = {
+	sqltypes.LargeBinary: JDBCBlobClient,
+	# sqltypes.BLOB: JDBCBlobClient,
+	# sqltypes.BINARY: JDBCBlobClient2,
+	# sqltypes.PickleType: JDBCBlobClient,
+	# sqltypes.ARRAY: _array.ARRAY,
+	#sqltypes.Boolean: _HyperBoolean, #- TODO: remove mapping, and the class itself. Behavior doesn't differ
+	# sqltypes.Date: _OracleDate,
+	# sqltypes.DateTime: _MSDateTime,
+	# sqltypes.Enum: ENUM,
+	# sqltypes.Interval: INTERVAL,
+	# sqltypes.JSON: JSON,
+	# sqltypes.JSON.JSONIndexType: JSONIndexType,
+	# sqltypes.JSON.JSONPathType: JSONPathType,
+	# sqltypes.Time: _BASETIMEIMPL,
+	# sqltypes.Unicode: _MSUnicode,
+	# sqltypes.UnicodeText: _MSUnicodeText,
+	# sqltypes.Uuid: MSUUid,
+	# sqltypes.Uuid: PGUuid,
+}
+
+#- Map names returned by the "type_name" column of pyodbc's Cursor.columns method to our dialect types.
+#- These names are what you would retrieve from INFORMATION_SCHEMA.COLUMNS.DATA_TYPE if Access supported those types of system views.
+ischema_names = {
+	"BLOB": JDBCBlobClient,
+	# "_Binary": JDBCBlobClient2,
+	# "Binary": JDBCBlobClient2,
+	# "BINARY": JDBCBlobClient2,
+	# "org.hsqldb.jdbc.JDBCBlobClient": JDBCBlobClient3,
+	# "LargeBinary": JDBCBlobClient,
+	# "PickleType": JDBCBlobClient,
+	# "boolean": YESNO,
+	# "boolean": _HyperBoolean,
+	# <key>: <our data_type class>
+}
+
+
 # TODO: Implement HyperSqlCompiler. About 400 lines. The derived subclass is also long.
 class HyperSqlCompiler(compiler.SQLCompiler):
 
@@ -98,14 +183,19 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 
 # TODO: Implement HyperSqlTypeCompiler. About 50-150 lines, 12-25 methods.
 # TODO: Solve mystery. Access dialect has 'type_compiler', others have 'type_compiler_cls'
-class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
-	pass
-"""
-class GenericTypeCompiler(TypeCompiler):
-	class TypeCompiler(util.EnsureKWArg):
-		"Produces DDL specification for TypeEngine objects."
 
-"""
+class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
+
+	# TODO: remove visit_Boolean below...
+	def visit_Boolean_X(self, type_, **kw):
+		# TODO: This function is not called. Remove it.
+		raise NotImplementedError
+		return _HyperBoolean.__visit_name__
+
+	# TODO: remove visit_BOOLEAN below...
+	def visit_BOOLEAN_X(self, type_, **kw):
+		# This function gets called for Boolean and BOOLEAN, but duplicates the default BOOLEAN behaviour, so remove it.
+		return _HyperBoolean.__visit_name__
 
 
 # TODO: Implement HyperSqlIdentifierPreparer. About 20-55 lines, 2-5 methods.
@@ -167,28 +257,6 @@ class HyperSqlDialect(default.DefaultDialect):
 	def __init__(self, classpath=None, **kwargs):
 		super().__init__(**kwargs)
 		self.classpath = classpath	# A path to the HSQLDB executable jar file.
-
-	# WIP: what are colspecs?
-	#		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
-
-	# 'colspecs' seems to map sqltypes to types defined in the dialect's types.py file.
-	# default.DefaultDialect.colspecs: MutableMapping[Type[TypeEngine[Any]], Type[TypeEngine[Any]]] = {}
-	colspecs = {
-		# sqltypes.ARRAY: _array.ARRAY,
-		# sqltypes.Boolean: _OracleBoolean,
-		# sqltypes.Date: _OracleDate,
-		# sqltypes.DateTime: _MSDateTime,
-		# sqltypes.Enum: ENUM,
-		# sqltypes.Interval: INTERVAL,
-		# sqltypes.JSON: JSON,
-		# sqltypes.JSON.JSONIndexType: JSONIndexType,
-		# sqltypes.JSON.JSONPathType: JSONPathType,
-		# sqltypes.Time: _BASETIMEIMPL,
-		# sqltypes.Unicode: _MSUnicode,
-		# sqltypes.UnicodeText: _MSUnicodeText,
-		# sqltypes.Uuid: MSUUid,
-		# sqltypes.Uuid: PGUuid,
-	}
 
 	#- ok...
 	name = "hsqldb"
@@ -263,6 +331,10 @@ class HyperSqlDialect(default.DefaultDialect):
 	type_compiler = HyperSqlTypeCompiler
 	preparer = HyperSqlIdentifierPreparer
 	execution_ctx_cls = HyperSqlExecutionContext
+	
+	# ischema_names and colspecs are required members on the Dialect class, according to type_migration_guidelines.txt
+	ischema_names = ischema_names
+	colspecs = colspecs
 
 	@DeprecationWarning
 	@classmethod
