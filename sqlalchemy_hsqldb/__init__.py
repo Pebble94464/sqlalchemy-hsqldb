@@ -1,10 +1,4 @@
 
-#- # The Access dialect imports registry and then registers itself...
-#- from sqlalchemy.dialects import registry as _registry
-#- _registry.register(
-#-     "access.pyodbc", "sqlalchemy_access.pyodbc", "AccessDialect_pyodbc"
-#- )
-
 from . import base
 from . import jaydebeapi
 
