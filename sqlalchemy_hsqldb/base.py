@@ -17,6 +17,8 @@ from sqlalchemy import pool
 # from .types import FLOAT
 # from .types import INTERVAL
 
+#- from sqlalchemy.types import NUMERIC # already imported under sqltypes on line 9
+
 # Don't create types for UPPERCASE types that already exist and are used as-is. Import them instead...
 # TODO: import all UPPERCASE types that are used as-is...
 # e.g.	from sqlalchemy.types import INTEGER
@@ -157,7 +159,7 @@ ischema_names = {
 	# "boolean": HyperSqlBoolean,
 	# "Boolean": HyperSqlBoolean,
 	# "BOOLEAN": HyperSqlBoolean,
-
+	"NUMERIC": sqltypes.NUMERIC,
 	# "_Binary": JDBCBlobClient2,
 	# "Binary": JDBCBlobClient2,
 	# "BINARY": JDBCBlobClient2,
@@ -413,18 +415,17 @@ class HyperSqlDialect(default.DefaultDialect):
 
 	@reflection.cache
 	def get_columns(self, connection, table_name, schema=None, **kw):
-		# Does this actually need implementing, and does it belong to this class?
-		print('Hello Earthling!') # TODO: remove line
-		print('table_name: ', table_name)
 		if schema is None:
 			schema = self.default_schema_name
 		assert schema is not None
-		print('schema: ', schema)
-		query = f"""SELECT
+		reflectedColumns = []
+		query = f"""
+			SELECT
 			A.COLUMN_NAME AS "name",
-			A.TYPE_NAME AS "type",
-			B.DATA_TYPE AS "type_b",
-			-- TODO: 'nullable' has to possible fields, with either YES/NO or 0/1 values. Choose one and remove the other.
+			-- TODO: 'type' has to possible fields, which differ slightly for certain data types. Choose one, remove the other...
+			A.TYPE_NAME AS "type",		-- e.g. VARCHAR
+			B.DATA_TYPE AS "type_b",	-- e.g. CHARACTER VARYING
+			-- TODO: 'nullable' has to possible fields, with either YES/NO or 0/1 values. Choose one and remove the other...
 			A.NULLABLE AS "nullable_01", -- 0 OR 1
 			A.IS_NULLABLE AS "nullable_yesno", -- YES or NO
 			A.COLUMN_DEF AS "default", -- TODO: What does COLUMN_DEF represent, default value, or definition?
@@ -442,91 +443,44 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE A.TABLE_NAME = '{table_name}'
 			AND A.TABLE_SCHEM = '{schema}'
 			"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			for row in cursorResult.all():
+				# Note row._mapping is using column names as keys and not the aliases defined in the query.
 
-		print('query: \n', query)
-		cursorResult = connection.exec_driver_sql(query)
-		row = cursorResult.first()
-		print('row: ', repr(row))
+				col_name = row._mapping['COLUMN_NAME'] # str """column name"""
 
-		raise NotImplementedError()
+				assert row._mapping['TYPE_NAME'] in ischema_names, "ischema_names is missing a key for datatype %s" % row._mapping['TYPE_NAME']
+				col_type = ischema_names[row._mapping['TYPE_NAME']] # TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
 
-		reflectedColumn = {
-			'name': None, # str """column name"""
-			'type': None, #TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
-			'nullable': None, # bool """boolean flag if the column is NULL or NOT NULL"""
-			'default': None, # Optional[str] """column default expression as a SQL string"""
-			'autoincrement': None, # NotRequired[bool] """database-dependent autoincrement flag.
-			# This flag indicates if the column has a database-side "autoincrement"
-			# flag of some kind.   Within SQLAlchemy, other kinds of columns may
-			# also act as an "autoincrement" column without necessarily having
-			# such a flag on them.
-			# See :paramref:`_schema.Column.autoincrement` for more background on "autoincrement".
-			'comment': None, # NotRequired[Optional[str]] """comment for the column, if present. Only some dialects return this key """
-			'computed': None, # NotRequired[ReflectedComputed] """indicates that this column is computed by the database. Only some dialects return this key.
-			'identity': None, # NotRequired[ReflectedIdentity] indicates this column is an IDENTITY column. Only some dialects return this key.
-			'dialect_options': None, # NotRequired[Dict[str, Any]] Additional dialect-specific options detected for this reflected object
-		}
+				col_nullable = bool(row._mapping['NULLABLE']) # bool """boolean flag if the column is NULL or NOT NULL"""
+				col_default = row._mapping['COLUMN_DEF'] # Optional[str] """column default expression as a SQL string"""
+				col_autoincrement = row._mapping['IS_AUTOINCREMENT'] == 'YES' # NotRequired[bool] """database-dependent autoincrement flag.
+				# This flag indicates if the column has a database-side "autoincrement"
+				# flag of some kind.   Within SQLAlchemy, other kinds of columns may
+				# also act as an "autoincrement" column without necessarily having
+				# such a flag on them.
+				# See :paramref:`_schema.Column.autoincrement` for more background on "autoincrement".
+				col_comment = row._mapping['REMARKS'] # NotRequired[Optional[str]] """comment for the column, if present. Only some dialects return this key """
+				col_computed = None # NotRequired[ReflectedComputed] """indicates that this column is computed by the database. Only some dialects return this key.
 
-#  <comment statement> ::= COMMENT ON { TABLE | COLUMN | ROUTINE | SEQUENCE | TRIGGER} <table name> IS <character string literal> 
-# COMMENT ON TABLE PUBLIC."Table1" IS 'Comment for Table 1'
-# COMMENT ON COLUMN PUBLIC."Table1"."title" IS 'Comment for title'
+				# TODO: The type for identity should be ReflectedIdentity, not a bool.
+				col_identity = row._mapping['IS_IDENTITY'] == 'YES' # NotRequired[ReflectedIdentity] indicates this column is an IDENTITY column. Only some dialects return this key.
 
-# SELECT COMMENT FROM INFORMATION_SCHEMA.SYSTEM_COMMENTS
-# WHERE OBJECT_SCHEMA = 'PUBLIC'
-# AND OBJECT_NAME = 'Table1'
-# AND OBJECT_TYPE = 'COLUMN'
+				col_dialect_options = None # NotRequired[Dict[str, Any]] Additional dialect-specific options detected for this reflected object
 
-
-
-
-	'''
-	cursorResult = connection.exec_driver_sql(
-		f"""SELECT * FROM "INFORMATION_SCHEMA"."TABLES"
-		WHERE TABLE_SCHEMA = '{schema}'
-		AND TABLE_NAME = '{table_name}'
-		""")
-	return cursorResult.first() is not None
-	'''
-
-
-#     def get_columns_interface(
-#         self,
-#         connection: Connection,
-#         table_name: str,
-#         schema: Optional[str] = None,
-#         **kw: Any,
-#     ) -> List[ReflectedColumn]:
-#         """Return information about columns in ``table_name``.
-
-#         Given a :class:`_engine.Connection`, a string
-#         ``table_name``, and an optional string ``schema``, return column
-#         information as a list of dictionaries
-#         corresponding to the :class:`.ReflectedColumn` dictionary.
-
-#         This is an internal dialect method. Applications should use
-#         :meth:`.Inspector.get_columns`.
-
-#         """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+			reflectedColumns.append({
+				'name': col_name,
+				'type': col_type,
+				'nullable': col_nullable,
+				'default': col_default,
+				'autoincrement': col_autoincrement,
+				'comment': col_comment,
+				# 'computed': col_computed,
+				# 'identity': col_identity,
+				# 'dialect_options': col_dialect_options
+				})
+		return reflectedColumns
 
 	# @reflection.cache
 	# def get_foreign_keys(self, connection, table_name, schema=None, **kw):
