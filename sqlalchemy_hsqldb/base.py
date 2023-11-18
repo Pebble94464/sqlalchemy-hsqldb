@@ -7,6 +7,7 @@ from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
+from sqlalchemy.sql import quoted_name
 
 #from sqlalchemy import types, exc, pool
 from sqlalchemy import pool
@@ -89,6 +90,16 @@ class JDBCBlobClient(types.BLOB):
 
 # TODO: replace type checks for Java objects that are comparing strings, e.g. repr(value) == "<java object 'org.hsqldb.jdbc.JDBCBlobClient'>"
 
+# <java class 'java.lang.Boolean'>
+class HyperSqlBoolean(types.BOOLEAN):
+	__visit_name__ = "BOOLEAN"
+	def result_processor(self, dialect, coltype):
+		def process(value):
+			if value == None:
+				return value
+			assert str(type(value)) == "<java class 'java.lang.Boolean'>" # type check for Java object
+			return bool(value)
+		return process
 
 class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by colspecs
 	__visit_name__ = "_HyperBoolean"
@@ -118,6 +129,8 @@ class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by
 # Map SQLAlchemy types to HSQLDB dialect types...
 colspecs = {
 	sqltypes.LargeBinary: JDBCBlobClient,
+	sqltypes.Boolean: HyperSqlBoolean,
+
 	# sqltypes.BLOB: JDBCBlobClient,
 	# sqltypes.BINARY: JDBCBlobClient2,
 	# sqltypes.PickleType: JDBCBlobClient,
@@ -141,6 +154,10 @@ colspecs = {
 #- These names are what you would retrieve from INFORMATION_SCHEMA.COLUMNS.DATA_TYPE if Access supported those types of system views.
 ischema_names = {
 	"BLOB": JDBCBlobClient,
+	# "boolean": HyperSqlBoolean,
+	# "Boolean": HyperSqlBoolean,
+	# "BOOLEAN": HyperSqlBoolean,
+
 	# "_Binary": JDBCBlobClient2,
 	# "Binary": JDBCBlobClient2,
 	# "BINARY": JDBCBlobClient2,
@@ -203,7 +220,32 @@ class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
 	# Reserved words can be a union of sets 1 and 3, or 2 and 3.
 	reserved_words = RESERVED_WORDS_1.union(RESERVED_WORDS_3)
 
-	pass
+	def __init__(self, dialect, **kwargs):
+		super().__init__(dialect, **kwargs)
+
+	def format_table(self, table, use_schema=True, name=None):
+		"""Prepare a quoted table and schema name."""
+
+		if name is None:
+			name = table.name
+
+		name = quoted_name(name, True)
+		# HSQLDB normally changes table names to uppercase, unless the identifier is double quoted.
+		# The line of code above is added to ensure the name is always wrapped in quotes.
+		# An alternative solutions might be to ensure the name is converted to uppercase,
+		# or maybe there is a configuration setting in HSQLDB or SQLAlchemy that changes the default behaviour. 
+		# TODO: review table identifier case settings. Is the solution above sensible?
+
+		result = self.quote(name)
+
+		effective_schema = self.schema_for_object(table)
+
+		if not self.omit_schema and use_schema and effective_schema:
+			result = self.quote_schema(effective_schema) + "." + result
+		return result
+
+
+
 """
 class IdentifierPreparer:
 	"Handle quoting and case-folding of identifiers based on options."
@@ -260,6 +302,13 @@ class HyperSqlDialect(default.DefaultDialect):
 
 	#- ok...
 	name = "hsqldb"
+
+
+
+
+	supports_comments = True
+	# HyperSQL supports comments on tables and columns, possibly in some non-standard way though.
+	# TODO: verify the effect of this setting on HSQLDB.
 
 	# Set 'supports_schemas' to false to disable schema-level tests
 	supports_schemas = False
@@ -331,10 +380,16 @@ class HyperSqlDialect(default.DefaultDialect):
 	type_compiler = HyperSqlTypeCompiler
 	preparer = HyperSqlIdentifierPreparer
 	execution_ctx_cls = HyperSqlExecutionContext
-	
+
+	# TODO: verify the recently added setting below is required, and works as expected.
+	default_paramstyle = "qmark"
+
 	# ischema_names and colspecs are required members on the Dialect class, according to type_migration_guidelines.txt
 	ischema_names = ischema_names
 	colspecs = colspecs
+
+
+
 
 	@DeprecationWarning
 	@classmethod
@@ -351,6 +406,198 @@ class HyperSqlDialect(default.DefaultDialect):
 	def _has_table_query():
 		pass
 
+	# @reflection.cache
+	# def get_check_constraints(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	@reflection.cache
+	def get_columns(self, connection, table_name, schema=None, **kw):
+		# Does this actually need implementing, and does it belong to this class?
+		print('Hello Earthling!') # TODO: remove line
+		print('table_name: ', table_name)
+		if schema is None:
+			schema = self.default_schema_name
+		assert schema is not None
+		print('schema: ', schema)
+		query = f"""SELECT
+			A.COLUMN_NAME AS "name",
+			A.TYPE_NAME AS "type",
+			B.DATA_TYPE AS "type_b",
+			-- TODO: 'nullable' has to possible fields, with either YES/NO or 0/1 values. Choose one and remove the other.
+			A.NULLABLE AS "nullable_01", -- 0 OR 1
+			A.IS_NULLABLE AS "nullable_yesno", -- YES or NO
+			A.COLUMN_DEF AS "default", -- TODO: What does COLUMN_DEF represent, default value, or definition?
+			A.IS_AUTOINCREMENT AS "autoincrement",
+			A.REMARKS AS "comment",
+			-- NULL AS "computed", -- TODO: Does HSQLDB have an appropriate field?
+			B.IS_IDENTITY AS "identity"
+			-- NULL AS "dialect_options", -- TODO: Does HSQLDB have an appropriate field?
+			FROM "INFORMATION_SCHEMA"."SYSTEM_COLUMNS" AS "A"
+			LEFT JOIN "INFORMATION_SCHEMA"."COLUMNS" AS "B"
+			ON A.TABLE_NAME = B.TABLE_NAME
+			AND A.COLUMN_NAME = B.COLUMN_NAME
+			AND A.TABLE_SCHEM = B.TABLE_SCHEMA
+			AND A.TABLE_CAT = B.TABLE_CATALOG -- TODO: Document or fix potential area of failure. Catalogs with duplicate objects.
+			WHERE A.TABLE_NAME = '{table_name}'
+			AND A.TABLE_SCHEM = '{schema}'
+			"""
+
+		print('query: \n', query)
+		cursorResult = connection.exec_driver_sql(query)
+		row = cursorResult.first()
+		print('row: ', repr(row))
+
+		raise NotImplementedError()
+
+		reflectedColumn = {
+			'name': None, # str """column name"""
+			'type': None, #TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
+			'nullable': None, # bool """boolean flag if the column is NULL or NOT NULL"""
+			'default': None, # Optional[str] """column default expression as a SQL string"""
+			'autoincrement': None, # NotRequired[bool] """database-dependent autoincrement flag.
+			# This flag indicates if the column has a database-side "autoincrement"
+			# flag of some kind.   Within SQLAlchemy, other kinds of columns may
+			# also act as an "autoincrement" column without necessarily having
+			# such a flag on them.
+			# See :paramref:`_schema.Column.autoincrement` for more background on "autoincrement".
+			'comment': None, # NotRequired[Optional[str]] """comment for the column, if present. Only some dialects return this key """
+			'computed': None, # NotRequired[ReflectedComputed] """indicates that this column is computed by the database. Only some dialects return this key.
+			'identity': None, # NotRequired[ReflectedIdentity] indicates this column is an IDENTITY column. Only some dialects return this key.
+			'dialect_options': None, # NotRequired[Dict[str, Any]] Additional dialect-specific options detected for this reflected object
+		}
+
+#  <comment statement> ::= COMMENT ON { TABLE | COLUMN | ROUTINE | SEQUENCE | TRIGGER} <table name> IS <character string literal> 
+# COMMENT ON TABLE PUBLIC."Table1" IS 'Comment for Table 1'
+# COMMENT ON COLUMN PUBLIC."Table1"."title" IS 'Comment for title'
+
+# SELECT COMMENT FROM INFORMATION_SCHEMA.SYSTEM_COMMENTS
+# WHERE OBJECT_SCHEMA = 'PUBLIC'
+# AND OBJECT_NAME = 'Table1'
+# AND OBJECT_TYPE = 'COLUMN'
+
+
+
+
+	'''
+	cursorResult = connection.exec_driver_sql(
+		f"""SELECT * FROM "INFORMATION_SCHEMA"."TABLES"
+		WHERE TABLE_SCHEMA = '{schema}'
+		AND TABLE_NAME = '{table_name}'
+		""")
+	return cursorResult.first() is not None
+	'''
+
+
+#     def get_columns_interface(
+#         self,
+#         connection: Connection,
+#         table_name: str,
+#         schema: Optional[str] = None,
+#         **kw: Any,
+#     ) -> List[ReflectedColumn]:
+#         """Return information about columns in ``table_name``.
+
+#         Given a :class:`_engine.Connection`, a string
+#         ``table_name``, and an optional string ``schema``, return column
+#         information as a list of dictionaries
+#         corresponding to the :class:`.ReflectedColumn` dictionary.
+
+#         This is an internal dialect method. Applications should use
+#         :meth:`.Inspector.get_columns`.
+
+#         """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	# @reflection.cache
+	# def get_foreign_keys(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_indexes(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_schema_names(self, connection, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_sequence_names(self, connection, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_table_comment(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_table_names(self, connection, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_table_options(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_temp_table_names(self, connection, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_view_definition(self, connection, view_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def get_view_names(self, connection, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def has_sequence(self, connection, sequence_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
+	# @reflection.cache
+	# def has_table(self, connection, table_name, schema=None, **kw):
+	# 	# Does this actually need implementing, and does it belong to this class?
+	# 	raise NotImplementedError()
+
 	@reflection.cache
 	def has_table(self, connection, table_name, schema=None, **kw):
 		self._ensure_has_table_connection(connection)
@@ -366,26 +613,3 @@ class HyperSqlDialect(default.DefaultDialect):
 	# Tables are identified by catalog, schema, and table name in HSQLDB.
 	# It's possible two tables could share matching schema and table names,
 	# but in a different catalog, which might break the function above.
-
-
-""" WIP:
-This is the SQL currently generated by the default dialect...
-
-CREATE TABLE sample_table (
-	"Respondent" BIGINT, 
-	"MainBranch" TEXT, 
-	"YearsCode" FLOAT,
-	...
-)
-
-For HSQLDB it should probably look something like this...
-
-CREATE MEMORY TABLE IF NOT EXIST "PUBLIC"."sample_table" (
-	"Respondent" BIGINT, 
-	"MainBranch" VARCHAR(80), 
-	"YearsCode" FLOAT, 
-)
-
-How do Dialects generate the correct data type?
-
-"""
