@@ -2,7 +2,8 @@
 # This file sets up directives regarding database capabilities.
 #
 # WIP:
-# The properties of the Requirments class below have been copied in from SuiteRequiements as-is.
+# The properties of the HyperSqlRequirements class below have been copied in from SuiteRequiements,
+# more or less as-is, except for the addition of the 'array_type' property.
 # Still need to consider which properties are appropriate for HSQLDB and set them accordingly.
 
 import platform
@@ -12,21 +13,29 @@ from sqlalchemy.testing.exclusions import only_on
 from sqlalchemy import create_engine
 from sqlalchemy import util
 from sqlalchemy.pool import QueuePool
+
 from sqlalchemy.testing.requirements import SuiteRequirements
+# The description for module "sqlalchemy.testing.requirements" reads:
+#	Global database feature support policy.
+#	Provides decorators to mark tests requiring specific feature support from the target database.
+#	External dialect test suites should subclass SuiteRequirements to provide specific inclusion/exclusions.
 
+class HyperSqlRequirements(SuiteRequirements):
+	# WIP:	the properties below have been copied as-is from SuiteRequirements,
+	#		with the exception of 'array_type', which is defined in SQLAlchemy's
+	#		DefaultRequirements class (sqlalchemy\test\requirements.py) and
+	#		the Requirements class for Access.
+	# 
+	#		Failing to define 'array_type' causes an error when testing begins:
+	#			AttributeError: 'HyperSqlRequirements' object has no attribute 'array_type'
 
-class Requirements(SuiteRequirements):
-
-    # sqlalchemy-access sets 19 out of 219 properties.
-    # The array_type property below is exclusive to sqlalchemy-access...
     @property
     def array_type(self):
         return exclusions.closed()
-    # TODO: Is there a test for array_type defined in the sqlalchemy-access test suite?
-    # TODO: remove this property if not used by HSQLDB.
+	# Access returns exclusions.closed(). It's unclear what the default should be.
 
-
-    # Properties from SuiteRequirements...
+	# All other properties below are defined in the base class 'SuiteRequirements' class'.
+	# TODO: Consider removing any property that doesn't differ from returning its default value. BTW, Acccess's Requirements class defines just 19.
 
     @property
     def create_table(self):
@@ -57,7 +66,7 @@ class Requirements(SuiteRequirements):
         """Return databases that support the UUID datatype."""
 
         return exclusions.closed()
-    # xxx: return exclusions.open()
+    # Access returns exclusions.open()
 
     @property
     def foreign_keys(self):
@@ -200,7 +209,7 @@ class Requirements(SuiteRequirements):
         """
 
         return exclusions.open()
-    # xxx: return exclusions.closed() # Access does LIMIT (via TOP) but not OFFSET
+    # Access returns exclusions.closed() # Access does LIMIT (via TOP) but not OFFSET
 
     @property
     def bound_limit_offset(self):
@@ -209,7 +218,7 @@ class Requirements(SuiteRequirements):
         """
 
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def sql_expression_limit_offset(self):
@@ -219,7 +228,7 @@ class Requirements(SuiteRequirements):
         """
 
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def parens_in_union_contained_select_w_limit_offset(self):
@@ -232,7 +241,7 @@ class Requirements(SuiteRequirements):
 
         """
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def parens_in_union_contained_select_wo_limit_offset(self):
@@ -259,7 +268,7 @@ class Requirements(SuiteRequirements):
         """Target database allows boolean columns to store NULL."""
 
         return exclusions.open()
-    # xxx: return exclusions.closed() # Access Yes/No doesn't allow null
+    # Access returns exclusions.closed() # Access Yes/No doesn't allow null
 
     @property
     def nullsordering(self):
@@ -642,7 +651,7 @@ class Requirements(SuiteRequirements):
     @property
     def reflects_pk_names(self):
         return exclusions.closed()
-    # xxx: return exclusions.open()
+    # Access returns exclusions.open()
 
     @property
     def table_reflection(self):
@@ -683,7 +692,7 @@ class Requirements(SuiteRequirements):
 
         """
         return self.views
-    # xxx: return exclusions.open()
+    # Access returns exclusions.open()
 
     @property
     def view_reflection(self):
@@ -732,7 +741,7 @@ class Requirements(SuiteRequirements):
     @property
     def temp_table_reflection(self):
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def temp_table_reflect_indexes(self):
@@ -752,13 +761,13 @@ class Requirements(SuiteRequirements):
     def temporary_tables(self):
         """target database supports temporary tables"""
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def temporary_views(self):
         """target database supports temporary views"""
         return exclusions.closed()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def index_reflection(self):
@@ -844,7 +853,7 @@ class Requirements(SuiteRequirements):
         names.
         """
         return exclusions.closed()
-    # xxx: return exclusions.closed() # Access won't let you drop a child table unless you drop the FK constraint first. Not worth the grief.
+    # Access returns exclusions.closed() # Access won't let you drop a child table unless you drop the FK constraint first. Not worth the grief.
 
     @property
     def symbol_names_w_double_quote(self):
@@ -914,7 +923,7 @@ class Requirements(SuiteRequirements):
         datetime.datetime() with microsecond objects."""
 
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def timestamp_microseconds(self):
@@ -922,7 +931,7 @@ class Requirements(SuiteRequirements):
         datetime.datetime() with microsecond objects but only
         if TIMESTAMP is used."""
         return exclusions.closed()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def timestamp_microseconds_implicit_bound(self):
@@ -947,7 +956,7 @@ class Requirements(SuiteRequirements):
         datetime.date() objects."""
 
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def date_coerces_from_datetime(self):
@@ -969,7 +978,7 @@ class Requirements(SuiteRequirements):
         datetime.time() objects."""
 
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def time_microseconds(self):
@@ -977,7 +986,7 @@ class Requirements(SuiteRequirements):
         datetime.time() with microsecond objects."""
 
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def binary_comparisons(self):
@@ -1234,7 +1243,7 @@ class Requirements(SuiteRequirements):
 
         """
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def literal_float_coercion(self):
@@ -1258,7 +1267,7 @@ class Requirements(SuiteRequirements):
 
         """
         return exclusions.open()
-    # xxx: return exclusions.closed()
+    # Access returns exclusions.closed()
 
     @property
     def fetch_null_from_numeric(self):
