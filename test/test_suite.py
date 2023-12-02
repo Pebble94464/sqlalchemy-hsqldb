@@ -61,9 +61,13 @@ class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
 	@testing.skip("hsqldb")
 	def test_fk_ref(self):
 		return
-# WIP:
-# FAILED test/test_suite.py::BizarroCharacterFKResolutionTest_hsqldb+jaydebeapi::test_fk_ref[(2)-not_use_composite-(3)] - NotImplementedError 
-# TODO: Examine test and figure out whether HSQLDB supports it.  (Access does not).
+	# This test is currently failing. On line 341 in test_reflection.py, table
+	# "other" fails to auto loaded back in for some reason, before the assertions
+	# of the test are actually tested.  A NotImplementedError exception is thrown.
+	# The identifiers used in test parameter are quoted, so expect HSQLDB will
+	# handle these correctly.
+	# TODO: Try running this test again when this HSQLDB dialect is more complete.
+
 
 # # class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
 # #     @testing.skip("access")
