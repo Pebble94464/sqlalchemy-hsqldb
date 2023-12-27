@@ -13,6 +13,9 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 	driver = 'jaydebeapi'
 	jclassname = 'org.hsqldb.jdbc.JDBCDriver'
 
+	supports_statement_cache = False
+	# TODO: The supports_statement_cache must be present in both this class and its parent. Set the value to True when ready.
+
 	# TODO: Clean up the init function below after debugging. Is the method actually required?
 	def __init__(self, **kwargs):
 		HyperSqlDialect.__init__(self,**kwargs)

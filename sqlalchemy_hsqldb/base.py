@@ -13,6 +13,8 @@ from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import quoted_name
 from sqlalchemy import schema
+from sqlalchemy import BindTyping
+from sqlalchemy import util
 
 from sqlalchemy.sql.compiler import InsertmanyvaluesSentinelOpts
 # TODO: remove the above import if InsertmanyvaluesSentinelOpts is unused
@@ -204,6 +206,14 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 				text += "\n LIMIT 0"	# For HSQLDB zero means no limit
 			text += " OFFSET " + self.process(select._offset_clause, **kw)
 		return text
+
+	def render_bind_cast(self, type_, dbapi_type, sqltext):
+		return super().render_bind_cast(type_, dbapi_type, sqltext)
+	# 'render_bind_cast' gets called when HyperSqlDialect.bind_typing = BindTyping.BIND_CASTS
+	# 'render_bind_cast' is not implemented in the base.
+	# 'render_bind_cast' is specialised by the postgresql dialect.
+	# An alternative is BindingTyping.SETINPUTSIZES, which doesn't appear to be supported by JPype.
+	# TODO: investigate if render_bind_cast is appropriate for HSQLDB, or remove this method if unused.
 
 
 #- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
@@ -649,16 +659,11 @@ class HyperSqlDialect(default.DefaultDialect):
 
 
 
-# WIP: -->
 
-#i  reflection_options: Sequence[str] = ()
-#i  """Sequence of string names indicating keyword arguments that can be
-#i  established on a :class:`.Table` object which will be passed as
-#i  "reflection options" when using :paramref:`.Table.autoload_with`.
+#i  reflection_options: Sequence[str] = () # Sequence of string names to be passed as "reflection options" when using Table.autoload_with.
+	reflection_options = ()
+	# TODO: reflection_options is currently empty. Remove or comment out if unused.
 
-#i  Current example is "oracle_resolve_synonyms" in the Oracle dialect.
-
-#i  """
 
 #i  dbapi_exception_translation_map: Mapping[str, str] = util.EMPTY_DICT
 #i  """A dictionary of names that will contain as values the names of
@@ -668,22 +673,35 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  referred to (e.g. IntegrityError = MyException).   In the vast
 #i  majority of cases this dictionary is empty.
 #i  """
+	dbapi_exception_translation_map = {
+		# "SomeWarning" : "Warning",
+		# "SomeError" : "Error",
+		# "" : "InterfaceError",
+		# "" : "DatabaseError",
+		# "" : "DataError",
+		# "" : "OperationalError",
+		# "" : "IntegrityError",
+		# "" : "InternalError",
+		# "" : "ProgrammingError",
+		# "" : "NotSupportedError",
+	}
+	# This dictionary maps DBAPI exceptions to the exceptions of
+	# PEP 249 – Python Database API Specification v2.0.
+	# See: (https://peps.python.org/pep-0249/#exceptions)
+	# In most cases it will be empty apparently.
+	# TODO: update dbapi_exception_translation_map as and when dbapi errors are encountered. Remove if not it remains empty.
+
 
 #i  supports_comments: bool; """Indicates the dialect supports comment DDL on tables and columns."""
 	supports_comments = True
 	# HyperSQL supports comments on tables and columns, possibly in some non-standard way though.
 	# TODO: verify the effect of this setting on HSQLDB.
 
-#i  inline_comments: bool
-#i  """Indicates the dialect supports comment DDL that's inline with the
-#i  definition of a Table or Column.  If False, this implies that ALTER must
-#i  be used to set table and column comments."""
+#i  inline_comments: bool; # supported by mysql
+	inline_comments = False
 
-#i  supports_constraint_comments: bool
-#i  """Indicates if the dialect supports comment DDL on constraints.
-
-#i  .. versionadded: 2.0
-#i  """
+#i  supports_constraint_comments: bool; # Indicates if the dialect supports comment DDL on constraints.
+	supports_constraint_comments = False
 
 #i  _has_events = False
 
@@ -701,47 +719,57 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  _supports_statement_cache: bool
 #i  """internal evaluation for supports_statement_cache"""
 
-#i  bind_typing = BindTyping.NONE
-#i  """define a means of passing typing information to the database and/or
-#i  driver for bound parameters.
+#i  bind_typing = BindTyping.NONE; define a means of passing typing information to the database and/or driver for bound parameters.
+	bind_typing = BindTyping.NONE
+	# The options are... NONE | SETINPUTSIZES | RENDER_CASTS
+	#
+	# According to JPype documentation, the setinputsizes method has not been implemented. See...
+	# (https://jpype.readthedocs.io/en/latest/dbapi2.html#jpype.dbapi2.Cursor.setinputsizes)
+	# So, presumeably unsupported by HSQLDB via JayDeBeApi.
+	#
+	# Setting BindTyping to RENDER_CASTS results in calls to SQLCompiler.render_bind_casts
+	# The base class's method is not implemented. However the PG dialect overrides it.
+	# TODO: Investigate further. Can HSQLDB use RENDER_CASTS?
 
-#i  See :class:`.BindTyping` for values.
+#i  is_async: bool; # """Whether or not this dialect is intended for asyncio use."""
+	is_async = False
+	# We'll initially test with is_async set to false, in order to simplify debugging during development.
+	# TODO: set is_async to True, unless we're still debugging
 
-#i  .. versionadded:: 2.0
+#i  has_terminate: bool # """Whether or not this dialect has a separate "terminate" implementation that does not block or require awaiting."""
+	has_terminate = True
+	# HSQLDB can terminate sessions or transactions in various ways using
+	# statements ALTER SESSION, COMMIT, ROLLBACK, and DISCONNECT.
+	# For details see https://hsqldb.org/doc/guide/sessions-chapt.html
+	#
+	# Is this what 'has_terminate' is used for?  Unsure, so let's set it to true
+	# for now and wait for it to fail before attempting to implement support.
 
-#i  """
+#i  engine_config_types: Mapping[str, Any]; # A mapping of string keys that can be in an engine config linked to type conversion functions.
+	engine_config_types = default.DefaultDialect.engine_config_types.union(
+		{
+			# "pool_timeout": util.asint,					# DefaultDialect
+			# "echo": util.bool_or_str("debug"),			# DefaultDialect
+			# "echo_pool": util.bool_or_str("debug"),		# DefaultDialect
+			# "pool_recycle": util.asint,					# DefaultDialect
+			# "pool_size": util.asint,						# DefaultDialect
+			# "max_overflow": util.asint,					# DefaultDialect
+			# "future": util.asbool,						# DefaultDialect
+			"legacy_schema_aliasing": util.asbool			# mssql dialect - not applicable - remove
+		}
+	)
+	# TODO: Remove any engine_config_types that are commented out or inapplicable. Add entries if required. Remove final engine_config_types if completely empty.
 
-#i  is_async: bool
-#i  """Whether or not this dialect is intended for asyncio use."""
+#i  label_length: Optional[int]; # optional user-defined max length for SQL labels"""
+	label_length = 128
+	# Unknown. Will assume label_length is the same value as max_identifier_length for now.
+	# TODO: verify correct value for label_length
 
-#i  has_terminate: bool
-#i  """Whether or not this dialect has a separate "terminate" implementation
-#i  that does not block or require awaiting."""
+#i  include_set_input_sizes: Optional[Set[Any]] # set of DBAPI type objects that should be included in automatic cursor.setinputsizes() calls.
+	# include_set_input_sizes = {} # n/a because SET_INPUT_SIZES is unsupported
 
-#i  engine_config_types: Mapping[str, Any]
-#i  """a mapping of string keys that can be in an engine config linked to
-#i  type conversion functions.
-
-#i  """
-
-#i  label_length: Optional[int]
-#i  """optional user-defined max length for SQL labels"""
-
-#i  include_set_input_sizes: Optional[Set[Any]]
-#i  """set of DBAPI type objects that should be included in
-#i  automatic cursor.setinputsizes() calls.
-
-#i  This is only used if bind_typing is BindTyping.SET_INPUT_SIZES
-
-#i  """
-
-#i  exclude_set_input_sizes: Optional[Set[Any]]
-#i  """set of DBAPI type objects that should be excluded in
-#i  automatic cursor.setinputsizes() calls.
-
-#i  This is only used if bind_typing is BindTyping.SET_INPUT_SIZES
-
-#i  """
+#i  exclude_set_input_sizes: Optional[Set[Any]]; # set of DBAPI type objects that should be excluded in automatic cursor.setinputsizes() calls.
+	# exclude_set_input_sizes = {} # n/a because SET_INPUT_SIZES is unsupported
 
 #i  supports_simple_order_by_label: bool; """target database supports ORDER BY <labelname>, where <labelname> refers to a label in the columns clause of the SELECT"""
 	supports_simple_order_by_label = True
@@ -749,11 +777,13 @@ class HyperSqlDialect(default.DefaultDialect):
 	# refers to a label in the columns clause of the SELECT
 	# TODO: can be removed / set to True if supported. Access has it set to False.
 
-#i  div_is_floordiv: bool
-#i  """target database treats the / division operator as "floor division" """
+#i  div_is_floordiv: bool # target database treats the / division operator as "floor division" """
+	div_is_floordiv: True
+	# Verified. VALUES(5/3) returns 1
 
-#i  tuple_in_values: bool
-#i  """target database supports tuple IN, i.e. (x, y) IN ((q, p), (r, z))"""
+#i  tuple_in_values: bool # target database supports tuple IN, i.e. (x, y) IN ((q, p), (r, z))"""
+	tuple_in_values = True
+	# Verified.
 
 #i  _bind_typing_render_casts: bool
 
@@ -794,60 +824,24 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    """
 
 #i    raise NotImplementedError()
+#- jsn: use DefaultDialect.create_connect_args
 
-#i  def import_dbapi(cls) -> ModuleType:
-#i    """Import the DBAPI module that is used by this dialect.
 
-#i    The Python module object returned here will be assigned as an
-#i    instance variable to a constructed dialect under the name
-#i    ``.dbapi``.
+#i  def import_dbapi(cls) -> ModuleType: # Import the DBAPI module that is used by this dialect.
+	#- def import_dbapi(cls): raise NotImplementedError() # implemented by jaydebeapi.py
 
-#i    .. versionchanged:: 2.0  The :meth:`.Dialect.import_dbapi` class
-#i    method is renamed from the previous method ``.Dialect.dbapi()``,
-#i    which would be replaced at dialect instantiation time by the
-#i    DBAPI module itself, thus using the same name in two different ways.
-#i    If a ``.Dialect.dbapi()`` classmethod is present on a third-party
-#i    dialect, it will be used and a deprecation warning will be emitted.
+#i  def type_descriptor(cls, typeobj: TypeEngine[_T]) -> TypeEngine[_T]: #i Transform a generic type to a dialect-specific type.
+	#- def type_descriptor(cls, typeobj: TypeEngine[_T]) # inherit from DefaultDialect
 
-#i    """
-#i    raise NotImplementedError()
 
-#i  def type_descriptor(cls, typeobj: TypeEngine[_T]) -> TypeEngine[_T]:
-#i    """Transform a generic type to a dialect-specific type.
+#i  def initialize(self, connection: Connection) -> None: """Called during strategized creation of the dialect with a connection.
 
-#i    Dialect classes will usually use the
-#i    :func:`_types.adapt_type` function in the types module to
-#i    accomplish this.
-
-#i    The returned result is cached *per dialect class* so can
-#i    contain no dialect-instance state.
-
-#i    """
-
-#i    raise NotImplementedError()
-
-#i  def initialize(self, connection: Connection) -> None:
-#i    """Called during strategized creation of the dialect with a
-#i    connection.
-
-#i    Allows dialects to configure options based on server version info or
-#i    other properties.
-
-#i    The connection passed here is a SQLAlchemy Connection object,
-#i    with full capabilities.
-
-#i    The initialize() method of the base dialect should be called via
-#i    super().
-
-#i    .. note:: as of SQLAlchemy 1.4, this method is called **before**
-#i    any :meth:`_engine.Dialect.on_connect` hooks are called.
-
-#i    """
-
-#i    pass
+	def initialize(self, connection):
+		super().initialize(connection)
+	# Allows dialects to configure options based on server version info or other properties.
+	# E.g., self.supports_identity_columns = self.server_version_info >= (10,)
 
 #i  if TYPE_CHECKING:
-
 #i    def _overrides_default(self, method_name: str) -> bool:
 #i      ...
 
@@ -947,52 +941,24 @@ class HyperSqlDialect(default.DefaultDialect):
 		return reflectedColumns
 
 #i  def get_multi_columns(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, List[ReflectedColumn]]]:
-#i    """Return information about columns in all tables in the
-#i    given ``schema``.
+	# TODO: for better performance implement get_multi_columns. DefaultDialect's implementation is only adequate for now.
 
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_multi_columns`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
-
-#i  def get_pk_constraint(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> ReflectedPrimaryKeyConstraint:
-#i    """Return information about the primary key constraint on
-#i    table_name`.
-
-#i    Given a :class:`_engine.Connection`, a string
-#i    ``table_name``, and an optional string ``schema``, return primary
-#i    key information as a dictionary corresponding to the
-#i    :class:`.ReflectedPrimaryKeyConstraint` dictionary.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_pk_constraint`.
-
-#i    """
-#i    raise NotImplementedError()
+# WIP: -->
+#i  def get_pk_constraint( # Return information about the primary key constraint on table_name`.
+	@reflection.cache
+	def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		assert schema is not None
+		cursorResult = connection.exec_driver_sql(
+		f"""SELECT column_name from "INFORMATION_SCHEMA"."SYSTEM_PRIMARYKEYS"
+		WHERE table_schem = '{schema}' AND table_name = '{table_name}'
+		""")
+		return {
+			"constrained_columns": cursorResult.scalars().all()
+			#"dialect_options" : NotRequired[Dict[str, Any]] # Additional dialect-specific options detected for this primary key
+			}
 
 #i  def get_multi_pk_constraint(
 #i    self,
