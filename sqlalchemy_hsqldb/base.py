@@ -3,8 +3,7 @@
 # [New Dialect System](https://docs.sqlalchemy.org/en/20/changelog/migration_06.html)
 
 # TODO: delete all lines begining with '#i'. They're just copied in from interfaces.py to make sure we haven't forgotten anything.
-
-
+# TODO: Implement support for specifying catalog and schema in Dialect methods if possible. DefaultDialect supports schema only.
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
@@ -943,7 +942,6 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def get_multi_columns(
 	# TODO: for better performance implement get_multi_columns. DefaultDialect's implementation is only adequate for now.
 
-# WIP: -->
 #i  def get_pk_constraint( # Return information about the primary key constraint on table_name`.
 	@reflection.cache
 	def get_pk_constraint(self, connection, table_name, schema=None, **kw):
@@ -961,77 +959,60 @@ class HyperSqlDialect(default.DefaultDialect):
 			}
 
 #i  def get_multi_pk_constraint(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, ReflectedPrimaryKeyConstraint]]:
-#i    """Return information about primary key constraints in
-#i    all tables in the given ``schema``.
+	# TODO: for better performance implement get_multi_pk_constraint. DefaultDialect's implementation is only adequate for now.
 
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_multi_pk_constraint`.
+#i  def get_foreign_keys(	# Return information about foreign_keys in ``table_name``.
+	@reflection.cache
+	def get_foreign_keys(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		assert schema is not None
+		reflectedForeignKeys = []
+		query = f"""
+			SELECT
+			fk_name,
+			fkcolumn_name AS constrained_columns,
+			pktable_schem AS referred_schema,
+			pktable_name AS referrred_table,
+			pkcolumn_name AS referred_columns
+			FROM information_schema.system_crossreference
+			WHERE fktable_schem = '{schema}' AND fktable_name = '{table_name}'"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			for row in cursorResult.all():
+				# Note row._mapping is using column names as keys and not the aliases defined in the query.
+				fk_name = row._mapping['FK_NAME']
+				constrained_columns = row._mapping['FKCOLUMN_NAME']
+				referred_schema = row._mapping['PKTABLE_SCHEM']
+				referrred_table = row._mapping['PKTABLE_NAME']
+				referred_columns = row._mapping['PKCOLUMN_NAME']
 
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
+				# Retrieve an existing fk from the list or create a new one...
+				# Note: 'name' isn't strictly a member of reflectedForeignKeys.
+				#       I have added it so we can identify which rows belong to a foreign key.
+				#       Information on the relationship is lost without it. Unsure how Alchemy maintains this.
+				# TODO: consider dropping 'name' attributes from items in the reflectedForeignKeys list before return
+				filtered = tuple(filter(lambda d: 'name' in d and d['name'] == fk_name , reflectedForeignKeys))
+				if(len(filtered) > 0):
+					fk = filtered[0] # fk found
+				else:
+					fk = {
+						'name': fk_name, # This isn't a member of ReflectedForeignKeys
+						'constrained_columns': [],
+						'referred_schema': referred_schema,
+						'referrred_table': referrred_table,
+						'referred_columns': [],
+						# 'options': {} # TODO: implement 'options'. Might include ON DELETE CASCADE, ON UPDATE CASCADE, etc
+						}
+					reflectedForeignKeys.append(fk)
+				fk['constrained_columns'].append(constrained_columns)
+				fk['referred_columns'].append(referred_columns)
+		return reflectedForeignKeys
 
-#i    .. versionadded:: 2.0
+#i  def get_multi_foreign_keys( # Return information about foreign_keys in all tables in the given ``schema``.
+	# TODO: for better performance implement get_multi_foreign_keys.
 
-#i    """
-#i    raise NotImplementedError()
-
-#i  def get_foreign_keys(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> List[ReflectedForeignKeyConstraint]:
-#i    """Return information about foreign_keys in ``table_name``.
-
-#i    Given a :class:`_engine.Connection`, a string
-#i    ``table_name``, and an optional string ``schema``, return foreign
-#i    key information as a list of dicts corresponding to the
-#i    :class:`.ReflectedForeignKeyConstraint` dictionary.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_foreign_keys`.
-#i    """
-
-#i    raise NotImplementedError()
-
-#i  def get_multi_foreign_keys(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, List[ReflectedForeignKeyConstraint]]]:
-#i    """Return information about foreign_keys in all tables
-#i    in the given ``schema``.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_multi_foreign_keys`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def get_table_names(
 #i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
