@@ -8,6 +8,7 @@
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Connection
+from sqlalchemy.engine.reflection import ReflectionDefaults
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import quoted_name
@@ -16,7 +17,7 @@ from sqlalchemy import BindTyping
 from sqlalchemy import util
 
 from sqlalchemy.sql.compiler import InsertmanyvaluesSentinelOpts
-# TODO: remove the above import if InsertmanyvaluesSentinelOpts is unused
+# TODO: remove InsertmanyvaluesSentinelOpts and all other unused imports
 
 #from sqlalchemy import types, exc, pool
 from sqlalchemy import pool
@@ -975,7 +976,10 @@ class HyperSqlDialect(default.DefaultDialect):
 			fkcolumn_name AS constrained_columns,
 			pktable_schem AS referred_schema,
 			pktable_name AS referrred_table,
-			pkcolumn_name AS referred_columns
+			pkcolumn_name AS referred_columns,
+			update_rule,
+			delete_rule,
+			deferrability
 			FROM information_schema.system_crossreference
 			WHERE fktable_schem = '{schema}' AND fktable_name = '{table_name}'"""
 		with connection as conn:
@@ -987,6 +991,13 @@ class HyperSqlDialect(default.DefaultDialect):
 				referred_schema = row._mapping['PKTABLE_SCHEM']
 				referrred_table = row._mapping['PKTABLE_NAME']
 				referred_columns = row._mapping['PKCOLUMN_NAME']
+				onupdate = row._mapping['update_rule']
+				ondelete = row._mapping['delete_rule']
+				deferrable = row._mapping['deferrability']
+				# The values of UPDATE_RULE, DELETE_RULE, and DEFERRABILITY are all integers.
+				# Somewhere as yet undiscovered, they'll probably map to FOREIGN KEY options,
+				# such as [ON {DELETE | UPDATE} {CASCADE | SET DEFAULT | SET NULL}]
+				# TODO: resolve FK options to strings if required for ReflectedForeignKeys.options
 
 				# Retrieve an existing fk from the list or create a new one...
 				# Note: 'name' isn't strictly a member of reflectedForeignKeys.
@@ -997,18 +1008,33 @@ class HyperSqlDialect(default.DefaultDialect):
 				if(len(filtered) > 0):
 					fk = filtered[0] # fk found
 				else:
+					# Create a new fk dictionary.
+					# TODO: consider using the default dictionary instead, provided by ReflectionDefaults.foreign_keys, as used by PG and Oracle dialects.
 					fk = {
 						'name': fk_name, # This isn't a member of ReflectedForeignKeys
 						'constrained_columns': [],
 						'referred_schema': referred_schema,
 						'referrred_table': referrred_table,
 						'referred_columns': [],
-						# 'options': {} # TODO: implement 'options'. Might include ON DELETE CASCADE, ON UPDATE CASCADE, etc
+						'options': {
+							'onupdate': onupdate,
+							'ondelete': ondelete,
+							'deferrable': deferrable
 						}
+					}
 					reflectedForeignKeys.append(fk)
 				fk['constrained_columns'].append(constrained_columns)
 				fk['referred_columns'].append(referred_columns)
 		return reflectedForeignKeys
+
+
+# importedKeyNoAction - do not allow delete of primary key if it has been imported
+# importedKeyCascade - delete rows that import a deleted key
+# importedKeySetNull - change imported key to NULL if its primary key has been deleted
+# importedKeyRestrict - same as importedKeyNoAction (for ODBC 2.x compatibility)
+# importedKeySetDefault
+
+
 
 #i  def get_multi_foreign_keys( # Return information about foreign_keys in all tables in the given ``schema``.
 	# TODO: for better performance implement get_multi_foreign_keys.
