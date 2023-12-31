@@ -1027,30 +1027,20 @@ class HyperSqlDialect(default.DefaultDialect):
 				fk['referred_columns'].append(referred_columns)
 		return reflectedForeignKeys
 
-
-# importedKeyNoAction - do not allow delete of primary key if it has been imported
-# importedKeyCascade - delete rows that import a deleted key
-# importedKeySetNull - change imported key to NULL if its primary key has been deleted
-# importedKeyRestrict - same as importedKeyNoAction (for ODBC 2.x compatibility)
-# importedKeySetDefault
-
-
-
 #i  def get_multi_foreign_keys( # Return information about foreign_keys in all tables in the given ``schema``.
 	# TODO: for better performance implement get_multi_foreign_keys.
 
+#i  def get_table_names( # """Return a list of table names for ``schema``.
+	@reflection.cache
+	def get_table_names(self, connection, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'")
+		return cursorResult.scalars().all()
 
-#i  def get_table_names(
-#i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
-#i  ) -> List[str]:
-#i    """Return a list of table names for ``schema``.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_table_names`.
-
-#i    """
-
-#i    raise NotImplementedError()
+# WIP: -->
 
 #i  def get_temp_table_names(
 #i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
