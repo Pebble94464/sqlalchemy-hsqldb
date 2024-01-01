@@ -1091,20 +1091,12 @@ class HyperSqlDialect(default.DefaultDialect):
 			""")
 		return cursorResult.scalars().all()
 
+#i  def get_temp_view_names( # Return a list of temporary view names on the given connection, if supported by the underlying backend.
+	def get_temp_view_names(self, connection, schema=None, **kw):
+		raise NotImplementedError()
+	# According to Claude HSQLDB doesn't support temporary views.
+
 # WIP: -->
-#i  def get_temp_view_names(
-#i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
-#i  ) -> List[str]:
-#i    """Return a list of temporary view names on the given connection,
-#i    if supported by the underlying backend.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_temp_view_names`.
-
-#i    """
-
-#i    raise NotImplementedError()
-
 #i  def get_schema_names(self, connection: Connection, **kw: Any) -> List[str]:
 #i    """Return a list of all schema names available in the database.
 
