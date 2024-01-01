@@ -1060,20 +1060,22 @@ class HyperSqlDialect(default.DefaultDialect):
 	# Are local temporary table names discoverable through INFORMATION_SCHEMA? It seems not.
 
 # WIP: -->
-#i  def get_view_names(
-#i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
-#i  ) -> List[str]:
-#i    """Return a list of all non-materialized view names available in the
-#i    database.
+#i  def get_view_names( # """Return a list of all non-materialized view names available in the database.
+	@reflection.cache
+	def get_view_names(self, connection, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(f"""
+				SELECT table_name FROM information_schema.tables
+				WHERE table_schema = '{schema}'
+				AND table_type = 'VIEW'
+			""")
+		return cursorResult.scalars().all()
 
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_view_names`.
 
-#i    :param schema: schema name to query, if not the default schema.
 
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def get_materialized_view_names(
 #i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
