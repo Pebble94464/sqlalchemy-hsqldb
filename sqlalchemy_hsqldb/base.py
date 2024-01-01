@@ -1078,22 +1078,20 @@ class HyperSqlDialect(default.DefaultDialect):
 		raise NotImplementedError()
 	# According to Fred Toussi, "HSQLDB does not support materialized views directly. You can use database triggers to update tables acting as materialized views."
 
+#i  def get_sequence_names( # Return a list of all sequence names available in the database.
+	@reflection.cache
+	def get_sequence_names(self, connection, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(f"""
+				SELECT sequence_name FROM information_schema.sequences
+				WHERE sequence_schema = '{schema}'
+			""")
+		return cursorResult.scalars().all()
+
 # WIP: -->
-#i  def get_sequence_names(
-#i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
-#i  ) -> List[str]:
-#i    """Return a list of all sequence names available in the database.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_sequence_names`.
-
-#i    :param schema: schema name to query, if not the default schema.
-
-#i    .. versionadded:: 1.4
-#i    """
-
-#i    raise NotImplementedError()
-
 #i  def get_temp_view_names(
 #i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
 #i  ) -> List[str]:
