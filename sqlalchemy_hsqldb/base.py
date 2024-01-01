@@ -1059,7 +1059,6 @@ class HyperSqlDialect(default.DefaultDialect):
 	# HSQLDB supports two types of temporary table, global and local.
 	# Are local temporary table names discoverable through INFORMATION_SCHEMA? It seems not.
 
-# WIP: -->
 #i  def get_view_names( # """Return a list of all non-materialized view names available in the database.
 	@reflection.cache
 	def get_view_names(self, connection, schema=None, **kw):
@@ -1074,26 +1073,12 @@ class HyperSqlDialect(default.DefaultDialect):
 			""")
 		return cursorResult.scalars().all()
 
+#i  def get_materialized_view_names( #Return a list of all materialized view names available in the database.
+	def get_materialized_view_names(self, connection, schema=None, **kw):
+		raise NotImplementedError()
+	# According to Fred Toussi, "HSQLDB does not support materialized views directly. You can use database triggers to update tables acting as materialized views."
 
-
-
-#i  def get_materialized_view_names(
-#i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
-#i  ) -> List[str]:
-#i    """Return a list of all materialized view names available in the
-#i    database.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_materialized_view_names`.
-
-#i    :param schema: schema name to query, if not the default schema.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def get_sequence_names(
 #i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
 #i  ) -> List[str]:
