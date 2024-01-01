@@ -1106,26 +1106,21 @@ class HyperSqlDialect(default.DefaultDialect):
 			cursorResult = conn.exec_driver_sql("SELECT schema_name FROM information_schema.schemata")
 		return cursorResult.scalars().all()
 
+#i  def get_view_definition( # Return plain or materialized view definition.
+	@reflection.cache
+	def get_view_definition(self, connection, view_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(f"""
+				SELECT view_definition FROM information_schema.views
+				WHERE table_name = '{view_name}'
+				AND table_schema = '{schema}'
+			""")
+		return cursorResult.scalar()
+
 # WIP: -->
-#i  def get_view_definition(
-#i    self,
-#i    connection: Connection,
-#i    view_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> str:
-#i    """Return plain or materialized view definition.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_view_definition`.
-
-#i    Given a :class:`_engine.Connection`, a string
-#i    ``view_name``, and an optional string ``schema``, return the view
-#i    definition.
-#i    """
-
-#i    raise NotImplementedError()
-
 #i  def get_indexes(
 #i    self,
 #i    connection: Connection,
