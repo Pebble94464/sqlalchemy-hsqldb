@@ -1039,22 +1039,24 @@ class HyperSqlDialect(default.DefaultDialect):
 		with connection as conn:
 			cursorResult = conn.exec_driver_sql(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'")
 		return cursorResult.scalars().all()
+	# Note get_table_names also includes GLOBAL TEMPORARY tables. Do these need filtering out?
+
+#i  def get_temp_table_names( # Return a list of temporary table names on the given connection, if supported by the underlying backend.
+	@reflection.cache
+	def get_temp_table_names(self, connection, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(f"""
+				SELECT table_name FROM information_schema.system_tables
+				WHERE table_type = 'GLOBAL TEMPORARY' AND table_schem = '{schema}'
+			""")
+		return cursorResult.scalars().all()
+	# HSQLDB supports two types of temporary table, global and local.
+	# Are local temporary table names discoverable through INFORMATION_SCHEMA? It seems not.
 
 # WIP: -->
-
-#i  def get_temp_table_names(
-#i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
-#i  ) -> List[str]:
-#i    """Return a list of temporary table names on the given connection,
-#i    if supported by the underlying backend.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_temp_table_names`.
-
-#i    """
-
-#i    raise NotImplementedError()
-
 #i  def get_view_names(
 #i    self, connection: Connection, schema: Optional[str] = None, **kw: Any
 #i  ) -> List[str]:
