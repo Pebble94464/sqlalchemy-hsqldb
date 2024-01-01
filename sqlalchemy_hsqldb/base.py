@@ -1074,6 +1074,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		return cursorResult.scalars().all()
 
 #i  def get_materialized_view_names( #Return a list of all materialized view names available in the database.
+	@reflection.cache
 	def get_materialized_view_names(self, connection, schema=None, **kw):
 		raise NotImplementedError()
 	# According to Fred Toussi, "HSQLDB does not support materialized views directly. You can use database triggers to update tables acting as materialized views."
@@ -1092,19 +1093,20 @@ class HyperSqlDialect(default.DefaultDialect):
 		return cursorResult.scalars().all()
 
 #i  def get_temp_view_names( # Return a list of temporary view names on the given connection, if supported by the underlying backend.
+	@reflection.cache
 	def get_temp_view_names(self, connection, schema=None, **kw):
 		raise NotImplementedError()
 	# According to Claude HSQLDB doesn't support temporary views.
 
+#i  def get_schema_names( # Return a list of all schema names available in the database.
+	@reflection.cache
+	def get_schema_names(self, connection, **kw):
+		self._ensure_has_table_connection(connection)
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql("SELECT schema_name FROM information_schema.schemata")
+		return cursorResult.scalars().all()
+
 # WIP: -->
-#i  def get_schema_names(self, connection: Connection, **kw: Any) -> List[str]:
-#i    """Return a list of all schema names available in the database.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_schema_names`.
-#i    """
-#i    raise NotImplementedError()
-
 #i  def get_view_definition(
 #i    self,
 #i    connection: Connection,
