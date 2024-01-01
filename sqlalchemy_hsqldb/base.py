@@ -1037,9 +1037,12 @@ class HyperSqlDialect(default.DefaultDialect):
 		if schema is None:
 			schema = self.default_schema_name
 		with connection as conn:
-			cursorResult = conn.exec_driver_sql(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'")
+			cursorResult = conn.exec_driver_sql(f"""
+				SELECT table_name FROM information_schema.tables
+				WHERE table_schema = '{schema}'
+				AND table_type = 'BASE TABLE'
+			""")
 		return cursorResult.scalars().all()
-	# Note get_table_names also includes GLOBAL TEMPORARY tables. Do these need filtering out?
 
 #i  def get_temp_table_names( # Return a list of temporary table names on the given connection, if supported by the underlying backend.
 	@reflection.cache
