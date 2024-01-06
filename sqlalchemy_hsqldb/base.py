@@ -30,7 +30,14 @@ from sqlalchemy import pool
 # TODO: import all UPPERCASE types that are used as-is...
 # e.g.	from sqlalchemy.types import INTEGER
 
-
+def _getDictFromList(key, val, theList):
+	"""Returns the first dictionary with a matching key value or None."""
+	for dict in theList:
+		item = dict.get(key)
+		if item == val:
+			return dict
+	return None
+	# TODO: update code to use this method, if it's quicker than the filter method.
 
 # List of SQL Standard Keywords...
 RESERVED_WORDS_1 = set(
@@ -1120,6 +1127,94 @@ class HyperSqlDialect(default.DefaultDialect):
 			""")
 		return cursorResult.scalar()
 
+	def get_indexes(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		reflectedIndexList = []
+		query = f"""
+			SELECT
+			table_schem
+			,table_name
+			,index_name
+			,column_name
+			-- expressions
+			,non_unique
+			-- duplicates_constraint
+			-- include_columns
+			,asc_or_desc
+			FROM information_schema.system_indexinfo
+			WHERE table_schem = '{schema}' AND table_name = '{table_name}'
+		"""
+		# TODO: removed commented out fields from above query.
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			for row in cursorResult.all():
+				index_name = row._mapping['INDEX_NAME']
+				idx = _getDictFromList('name', index_name, reflectedIndexList)
+				if idx == None:
+					idx = {
+						'name': index_name,
+						'column_names': [],
+						# 'expressions': [], # Not required. Unsuppored by HSQLDB?
+						'unique': False,
+						# 'duplicates_constraint': # Not required
+						# 'include_columns': None, # Deprecated
+						'column_sorting': {}, # Not required
+						# 'dialect_options': None # Not required.
+					}
+					reflectedIndexList.append(idx)
+
+				column_name = row._mapping['COLUMN_NAME'] # list; if none, returned in expressions list
+				idx['column_names'].append(column_name)
+
+				# expressions = None
+				# TODO: Is the expressions list applicable to HSQLDB?
+
+				unique = not(row._mapping['NON_UNIQUE'])
+				if unique == True:
+					idx['duplicates_constraint'] = constraint_name = index_name
+					# Like to Postgresql, HSQLDB appears to implicitly create an index whenever
+					# a unique constraint is added. The index name and constraint name will match.
+					# See "PostgreSQL Index Reflection" in Postgresql's base.py for more detail.
+					# TODO: ensure duplicates_constraint is covered by adequate testing
+
+				# idx['include_columns'] = # NotRequired[List[str]] # deprecated 2.0
+
+				column_sorting = idx.get('column_sorting')
+				assert column_sorting != None, 'column_sorting is None'
+				# TODO: remove assertion when done
+
+				asc_or_desc = row._mapping['ASC_OR_DESC'] # Can be 'A', 'D', or null
+				if(asc_or_desc == 'A'):
+					column_sorting[column_name] = ('asc',)
+				asc_or_desc = row._mapping['ASC_OR_DESC']
+				if(asc_or_desc == 'D'):
+					column_sorting[column_name] = ('desc',)
+				# The tuples for each item in the column_sorting dictionary may
+				# contain 'asc', 'desc', 'nulls_first', 'nulls_last'.
+				# HSQLDB doesn't appear to have a field for nulls first / last,
+				# and only ascending ordering has been observed so far.
+				assert asc_or_desc == 'A' or asc_or_desc == 'D'
+				# TODO: remove the assertion and revise comments above.
+
+				if False:
+					# The SYSTEM_INDEXINFO table has a few more columns which
+					# haven't been queried for. If these are useful, update the
+					# query and they can be added as dialect_options...
+					idx['dialect_options'] = {
+						'type': row._mapping['TYPE'],
+						'ordinal_position': row._mapping['ORDINAL_POSITION'],
+						'cardinality': row._mapping['CARDINALITY'],
+						'pages': row._mapping['PAGES'],
+						'filter_condition': row._mapping['FILTER_CONDITION'],
+						'row_cardinality': row._mapping['ROW_CARDINALITY'],
+					}
+					# TODO: remove this block of code if unused.
+
+		return reflectedIndexList
+
+
 # WIP: -->
 #i  def get_indexes(
 #i    self,
@@ -1129,16 +1224,13 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    **kw: Any,
 #i  ) -> List[ReflectedIndex]:
 #i    """Return information about indexes in ``table_name``.
-
 #i    Given a :class:`_engine.Connection`, a string
 #i    ``table_name`` and an optional string ``schema``, return index
 #i    information as a list of dictionaries corresponding to the
 #i    :class:`.ReflectedIndex` dictionary.
-
 #i    This is an internal dialect method. Applications should use
 #i    :meth:`.Inspector.get_indexes`.
 #i    """
-
 #i    raise NotImplementedError()
 
 #i  def get_multi_indexes(
