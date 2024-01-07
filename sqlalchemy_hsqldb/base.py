@@ -4,6 +4,7 @@
 
 # TODO: delete all lines begining with '#i'. They're just copied in from interfaces.py to make sure we haven't forgotten anything.
 # TODO: Implement support for specifying catalog and schema in Dialect methods if possible. DefaultDialect supports schema only.
+# TODO: Ensure joins occur on the correct schema and catalog.
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
@@ -1007,10 +1008,7 @@ class HyperSqlDialect(default.DefaultDialect):
 				# TODO: resolve FK options to strings if required for ReflectedForeignKeys.options
 
 				# Retrieve an existing fk from the list or create a new one...
-				# Note: 'name' isn't strictly a member of reflectedForeignKeys.
-				#       I have added it so we can identify which rows belong to a foreign key.
-				#       Information on the relationship is lost without it. Unsure how Alchemy maintains this.
-				# TODO: consider dropping 'name' attributes from items in the reflectedForeignKeys list before return
+				# TODO: replace filter with call to _getDictFromList, if faster.
 				filtered = tuple(filter(lambda d: 'name' in d and d['name'] == fk_name , reflectedForeignKeys))
 				if(len(filtered) > 0):
 					fk = filtered[0] # fk found
@@ -1018,7 +1016,7 @@ class HyperSqlDialect(default.DefaultDialect):
 					# Create a new fk dictionary.
 					# TODO: consider using the default dictionary instead, provided by ReflectionDefaults.foreign_keys, as used by PG and Oracle dialects.
 					fk = {
-						'name': fk_name, # This isn't a member of ReflectedForeignKeys
+						'name': fk_name, # ReflectedConstraint.name
 						'constrained_columns': [],
 						'referred_schema': referred_schema,
 						'referrred_table': referrred_table,
@@ -1242,7 +1240,7 @@ class HyperSqlDialect(default.DefaultDialect):
 				ct = _getDictFromList('name', ct_name, reflectedUniqueConstraint)
 				if ct == None:
 					ct = {
-						'name': ct_name,
+						'name': ct_name, # ReflectedConstraint.name
 						'column_names': [],
 						'duplicates_index': index_name, # Assumed it's a duplicate because HSQLDB implicitly creates an index on creation of a unique constraint
 						'dialect_options': {}
@@ -1252,56 +1250,42 @@ class HyperSqlDialect(default.DefaultDialect):
 				ct['column_names'].append(column_name)
 		return reflectedUniqueConstraint
 
-# WIP: -->
 #i  def get_multi_unique_constraints(
 	# TODO: for better performance implement get_multi_unique_constraints.	
 
 #i  def get_check_constraints(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> List[ReflectedCheckConstraint]:
-#i    r"""Return information about check constraints in ``table_name``.
-
-#i    Given a string ``table_name`` and an optional string ``schema``, return
-#i    check constraint information as a list of dicts corresponding
-#i    to the :class:`.ReflectedCheckConstraint` dictionary.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_check_constraints`.
-
-#i    """
-
-#i    raise NotImplementedError()
+	@reflection.cache
+	def get_check_constraints(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		reflectedCheckConstraint = []
+		query = f"""
+			SELECT a.constraint_name, b.check_clause FROM information_schema.table_constraints a
+			JOIN information_schema.check_constraints b
+			ON a.constraint_name = b.constraint_name
+			AND a.constraint_schema = b.constraint_schema
+			AND a.constraint_catalog = b.constraint_catalog
+			WHERE table_name = '{table_name}'
+			AND table_schema = '{schema}'
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			for row in cursorResult.all():
+				constraint_name = row._mapping['CONSTRAINT_NAME']
+				check_clause = row._mapping['CHECK_CLAUSE']
+				constraint = {
+					'name': constraint_name,
+					'sqltext': check_clause,
+					'dialect_options': {}
+				}
+				reflectedCheckConstraint.append(constraint)
+		return reflectedCheckConstraint
 
 #i  def get_multi_check_constraints(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, List[ReflectedCheckConstraint]]]:
-#i    """Return information about check constraints in all tables
-#i    in the given ``schema``.
+	# TODO: for better performance implement get_multi_check_constraints.	
 
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_multi_check_constraints`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
+# WIP: -->
 
 #i  def get_table_options(
 #i    self,
