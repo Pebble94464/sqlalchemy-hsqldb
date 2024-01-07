@@ -1127,6 +1127,8 @@ class HyperSqlDialect(default.DefaultDialect):
 			""")
 		return cursorResult.scalar()
 
+#i  def get_indexes(
+	@reflection.cache
 	def get_indexes(self, connection, table_name, schema=None, **kw):
 		self._ensure_has_table_connection(connection)
 		if schema is None:
@@ -1215,96 +1217,44 @@ class HyperSqlDialect(default.DefaultDialect):
 		return reflectedIndexList
 
 
-# WIP: -->
-#i  def get_indexes(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> List[ReflectedIndex]:
-#i    """Return information about indexes in ``table_name``.
-#i    Given a :class:`_engine.Connection`, a string
-#i    ``table_name`` and an optional string ``schema``, return index
-#i    information as a list of dictionaries corresponding to the
-#i    :class:`.ReflectedIndex` dictionary.
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_indexes`.
-#i    """
-#i    raise NotImplementedError()
-
 #i  def get_multi_indexes(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, List[ReflectedIndex]]]:
-#i    """Return information about indexes in in all tables
-#i    in the given ``schema``.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_multi_indexes`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
+	# TODO: for better performance implement get_multi_indexes.	
 
 #i  def get_unique_constraints(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> List[ReflectedUniqueConstraint]:
-#i    r"""Return information about unique constraints in ``table_name``.
+	@reflection.cache
+	def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		reflectedUniqueConstraint = []
+		query = f"""
+			SELECT constraint_name,  column_name FROM information_schema.table_constraints
+			JOIN information_schema.system_indexinfo
+			ON index_name = constraint_name
+			WHERE constraint_type = 'UNIQUE'
+			AND table_name = '{table_name}'
+			AND constraint_schema = '{schema}'
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			for row in cursorResult.all():
+				ct_name = index_name = row._mapping['CONSTRAINT_NAME']
+				ct = _getDictFromList('name', ct_name, reflectedUniqueConstraint)
+				if ct == None:
+					ct = {
+						'name': ct_name,
+						'column_names': [],
+						'duplicates_index': index_name, # Assumed it's a duplicate because HSQLDB implicitly creates an index on creation of a unique constraint
+						'dialect_options': {}
+					}
+					reflectedUniqueConstraint.append(ct)
+				column_name = row._mapping['COLUMN_NAME']
+				ct['column_names'].append(column_name)
+		return reflectedUniqueConstraint
 
-#i    Given a string ``table_name`` and an optional string ``schema``, return
-#i    unique constraint information as a list of dicts corresponding
-#i    to the :class:`.ReflectedUniqueConstraint` dictionary.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_unique_constraints`.
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def get_multi_unique_constraints(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, List[ReflectedUniqueConstraint]]]:
-#i    """Return information about unique constraints in all tables
-#i    in the given ``schema``.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_multi_unique_constraints`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
+	# TODO: for better performance implement get_multi_unique_constraints.	
 
 #i  def get_check_constraints(
 #i    self,
