@@ -5,6 +5,7 @@
 # TODO: delete all lines begining with '#i'. They're just copied in from interfaces.py to make sure we haven't forgotten anything.
 # TODO: Implement support for specifying catalog and schema in Dialect methods if possible. DefaultDialect supports schema only.
 # TODO: Ensure joins occur on the correct schema and catalog.
+# TODO: Ensure all methods raise an error when expected row(s) are missing.
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
@@ -16,6 +17,7 @@ from sqlalchemy.sql import quoted_name
 from sqlalchemy import schema
 from sqlalchemy import BindTyping
 from sqlalchemy import util
+from sqlalchemy import exc
 
 from sqlalchemy.sql.compiler import InsertmanyvaluesSentinelOpts
 # TODO: remove InsertmanyvaluesSentinelOpts and all other unused imports
@@ -1285,49 +1287,61 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def get_multi_check_constraints(
 	# TODO: for better performance implement get_multi_check_constraints.	
 
+#i  def get_table_options(; # """Return a dictionary of options specified when ``table_name`` was created.
+	@reflection.cache
+	def get_table_options(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		tableOptions = {}
+		query = f"""
+			SELECT
+			--table_name, 
+			table_type, hsqldb_type, commit_action FROM information_schema.system_tables
+			WHERE table_name = '{table_name}'
+			AND table_schem = '{schema}'
+			--AND table_cat = 'PUBLIC'
+			--AND table_type != 'VIEW'
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			row = cursorResult.first()
+			if not row and self.has_table(connection, table_name, schema) == False:
+				raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)				
+			assert row is not None, 'Row is None.'
+
+			# table_name = row._mapping['TABLE_NAME']
+			table_type = row._mapping['TABLE_TYPE']			# GLOBAL TEMPORARY | more...
+			hsqldb_type = row._mapping['HSQLDB_TYPE']		# MEMORY | CACHED | TEXT
+			commit_action = row._mapping['COMMIT_ACTION']  	# DELETE | PRESERVE | NULL
+
+			# The table type options in HSQLDB are: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
+
+			# Table type information is stored in one of two columns depending on the type.
+			# All temporary types are stored as 'GLOBAL TEMPORARY' in the TABLE_TYPE column,
+			# while MEMORY, CACHED, and TEXT types are recorded in the HSQLDB_TYPE column.
+
+			# Combine type information from two columns into a single key value...
+			if table_type.find('TEMP') >= 0:
+				# GLOBAL TEMPORARY | TEMPORARY | TEMP
+				tableOptions['type'] = table_type
+				# TODO: confirm all temporary types are treated as global temporary, and there's no other way to identify the different types of temporary table.
+			else:
+				# MEMORY | CACHED | TEXT
+				tableOptions['type'] = hsqldb_type
+				# TODO: confirm using a single key is the correct approach.
+				# TODO: Additional settings for TEXT tables are configured separately. Consider exposing them here.
+
+			if commit_action != None:
+				tableOptions['commit_action'] = commit_action
+
+		return tableOptions
+		# TODO: Document the TableOptions attributes defined in get_table_options
+
+#i  def get_multi_table_options( # Return a dictionary of options specified when the tables in the given schema were created.
+	# TODO: for better performance implement get_multi_table_options.	
+
 # WIP: -->
-
-#i  def get_table_options(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> Dict[str, Any]:
-#i    """Return a dictionary of options specified when ``table_name``
-#i    was created.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_table_options`.
-#i    """
-#i    raise NotImplementedError()
-
-#i  def get_multi_table_options(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, Dict[str, Any]]]:
-#i    """Return a dictionary of options specified when the tables in the
-#i    given schema were created.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_multi_table_options`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-#i    raise NotImplementedError()
-
 #i  def get_table_comment(
 #i    self,
 #i    connection: Connection,
