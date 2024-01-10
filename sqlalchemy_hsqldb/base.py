@@ -1341,59 +1341,32 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def get_multi_table_options( # Return a dictionary of options specified when the tables in the given schema were created.
 	# TODO: for better performance implement get_multi_table_options.	
 
-# WIP: -->
-#i  def get_table_comment(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> ReflectedTableComment:
-#i    r"""Return the "comment" for the table identified by ``table_name``.
-
-#i    Given a string ``table_name`` and an optional string ``schema``, return
-#i    table comment information as a dictionary corresponding to the
-#i    :class:`.ReflectedTableComment` dictionary.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`.Inspector.get_table_comment`.
-
-#i    :raise: ``NotImplementedError`` for dialects that don't support
-#i    comments.
-
-#i    .. versionadded:: 1.2
-
-#i    """
-
-#i    raise NotImplementedError()
-
+#i  def get_table_comment(; ...  ) -> ReflectedTableComment:
+	@reflection.cache
+	def get_table_comment(self, connection, table_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		query = f"""
+			SELECT remarks FROM information_schema.system_tables
+			WHERE table_name = '{table_name}'
+			AND table_schem = '{schema}'
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			comment = cursorResult.scalar()
+			if comment is not None:
+				return {"text": comment}
+			else:
+				return ReflectionDefaults.table_comment()
+	# The get_table_comment method currently returns a ReflectedTableComment object, regardless of whether the table exists or not.
+	# When a table doesn't exist we should be raising an exc.NoSuchTableError, so we know the table doesn't exist.
+	# TODO: Review all methods to ensure they raise an exception when tables don't exist.
+	
 #i  def get_multi_table_comment(
-#i    self,
-#i    connection: Connection,
-#i    schema: Optional[str] = None,
-#i    filter_names: Optional[Collection[str]] = None,
-#i    **kw: Any,
-#i  ) -> Iterable[Tuple[TableKey, ReflectedTableComment]]:
-#i    """Return information about the table comment in all tables
-#i    in the given ``schema``.
+	# TODO: for better performance implement get_multi_table_comment.	
 
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.get_multi_table_comment`.
-
-#i    .. note:: The :class:`_engine.DefaultDialect` provides a default
-#i    implementation that will call the single table method for
-#i    each object returned by :meth:`Dialect.get_table_names`,
-#i    :meth:`Dialect.get_view_names` or
-#i    :meth:`Dialect.get_materialized_view_names` depending on the
-#i    provided ``kind``. Dialects that want to support a faster
-#i    implementation should implement this method.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def normalize_name(self, name: str) -> str:
 #i    """convert the given name to lowercase if it is detected as
 #i    case insensitive.
