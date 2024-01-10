@@ -1438,30 +1438,21 @@ class HyperSqlDialect(default.DefaultDialect):
 			return cursorResult.scalar() > 0
 		# TODO: raise exc.NoSuchTableError when required
 
+#i  def has_schema(
+	@reflection.cache
+	def has_schema(self, connection, schema_name, **kw):
+		self._ensure_has_table_connection(connection)
+		query = f"""
+			SELECT COUNT(*) FROM information_schema.schemata
+			WHERE schema_name = '{schema_name}'
+			--AND catalog_name = 'PUBLIC'
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			return cursorResult.scalar() > 0
+		# TODO: cater for multiple catalogs
 
 # WIP: -->
-#i  def has_schema(
-#i    self, connection: Connection, schema_name: str, **kw: Any
-#i  ) -> bool:
-#i    """Check the existence of a particular schema name in the database.
-
-#i    Given a :class:`_engine.Connection` object, a string
-#i    ``schema_name``, return ``True`` if a schema of the
-#i    given exists, ``False`` otherwise.
-
-#i    The :class:`.DefaultDialect` implements this by checking
-#i    the presence of ``schema_name`` among the schemas returned by
-#i    :meth:`.Dialect.get_schema_names`,
-#i    however dialects can implement a more performant version.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.has_schema`.
-
-#i    .. versionadded:: 2.0
-
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def _get_server_version_info(self, connection: Connection) -> Any:
 #i    """Retrieve the server version info from the given connection.
