@@ -1362,11 +1362,10 @@ class HyperSqlDialect(default.DefaultDialect):
 	# The get_table_comment method currently returns a ReflectedTableComment object, regardless of whether the table exists or not.
 	# When a table doesn't exist we should be raising an exc.NoSuchTableError, so we know the table doesn't exist.
 	# TODO: Review all methods to ensure they raise an exception when tables don't exist.
-	
+
 #i  def get_multi_table_comment(
 	# TODO: for better performance implement get_multi_table_comment.	
 
-# WIP: -->
 #i  def normalize_name(self, name: str) -> str:
 #i    """convert the given name to lowercase if it is detected as
 #i    case insensitive.
@@ -1404,37 +1403,24 @@ class HyperSqlDialect(default.DefaultDialect):
 	# It's possible two tables could share matching schema and table names,
 	# but in a different catalog, which might break the function above.
 
-
-
-
-
 #i  def has_index(
-#i    self,
-#i    connection: Connection,
-#i    table_name: str,
-#i    index_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> bool:
-#i    """Check the existence of a particular index name in the database.
+	@reflection.cache
+	def has_index(self, connection, table_name, index_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		query = f"""
+			SELECT COUNT(*) FROM information_schema.system_indexinfo
+			WHERE index_name = '{index_name}'
+			AND table_name = '{table_name}'
+			AND table_schem = '{schema}'
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			return cursorResult.scalar() > 0
+		# TODO: raise exc.NoSuchTableError when required
 
-#i    Given a :class:`_engine.Connection` object, a string
-#i    ``table_name`` and string index name, return ``True`` if an index of
-#i    the given name on the given table exists, ``False`` otherwise.
-
-#i    The :class:`.DefaultDialect` implements this in terms of the
-#i    :meth:`.Dialect.has_table` and :meth:`.Dialect.get_indexes` methods,
-#i    however dialects can implement a more performant version.
-
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.has_index`.
-
-#i    .. versionadded:: 1.4
-
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def has_sequence(
 #i    self,
 #i    connection: Connection,
