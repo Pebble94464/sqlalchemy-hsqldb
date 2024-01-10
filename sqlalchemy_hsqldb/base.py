@@ -1414,32 +1414,32 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE index_name = '{index_name}'
 			AND table_name = '{table_name}'
 			AND table_schem = '{schema}'
+			LIMIT 1
 		"""
 		with connection as conn:
 			cursorResult = conn.exec_driver_sql(query)
 			return cursorResult.scalar() > 0
 		# TODO: raise exc.NoSuchTableError when required
 
-# WIP: -->
 #i  def has_sequence(
-#i    self,
-#i    connection: Connection,
-#i    sequence_name: str,
-#i    schema: Optional[str] = None,
-#i    **kw: Any,
-#i  ) -> bool:
-#i    """Check the existence of a particular sequence in the database.
+	@reflection.cache
+	def has_sequence(self, connection, sequence_name, schema=None, **kw):
+		self._ensure_has_table_connection(connection)
+		if schema is None:
+			schema = self.default_schema_name
+		query = f"""
+			SELECT COUNT(*) FROM information_schema.sequences
+			WHERE sequence_name = '{sequence_name}'
+			AND sequence_schema = '{schema}'
+			LIMIT 1
+		"""
+		with connection as conn:
+			cursorResult = conn.exec_driver_sql(query)
+			return cursorResult.scalar() > 0
+		# TODO: raise exc.NoSuchTableError when required
 
-#i    Given a :class:`_engine.Connection` object and a string
-#i    `sequence_name`, return ``True`` if the given sequence exists in
-#i    the database, ``False`` otherwise.
 
-#i    This is an internal dialect method. Applications should use
-#i    :meth:`_engine.Inspector.has_sequence`.
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def has_schema(
 #i    self, connection: Connection, schema_name: str, **kw: Any
 #i  ) -> bool:
