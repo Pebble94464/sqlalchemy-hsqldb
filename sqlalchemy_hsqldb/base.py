@@ -1452,19 +1452,11 @@ class HyperSqlDialect(default.DefaultDialect):
 			return cursorResult.scalar() > 0
 		# TODO: cater for multiple catalogs
 
-# WIP: -->
-
 #i  def _get_server_version_info(self, connection: Connection) -> Any:
-#i    """Retrieve the server version info from the given connection.
+	def _get_server_version_info(self, connection):
+		return connection.exec_driver_sql("CALL DATABASE_VERSION()").scalar()
 
-#i    This is used by the default implementation to populate the
-#i    "server_version_info" attribute and is called exactly
-#i    once upon first connect.
-
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def _get_default_schema_name(self, connection: Connection) -> str:
 	def _get_default_schema_name(self, connection):
 		return connection.exec_driver_sql("VALUES(CURRENT_SCHEMA)").scalar()
