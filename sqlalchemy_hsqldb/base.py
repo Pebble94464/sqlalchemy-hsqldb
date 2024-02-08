@@ -761,15 +761,17 @@ class HyperSqlDialect(default.DefaultDialect):
 		{
 			# "pool_timeout": util.asint,					# DefaultDialect
 			# "echo": util.bool_or_str("debug"),			# DefaultDialect
-			"echo_pool": util.bool_or_str("debug"),		# DefaultDialect
+			# "echo_pool": util.bool_or_str("debug"),		# DefaultDialect
 			# "pool_recycle": util.asint,					# DefaultDialect
-			"pool_size": util.asint,						# DefaultDialect
+			# "pool_size": util.asint,						# DefaultDialect
 			# "max_overflow": util.asint,					# DefaultDialect
 			# "future": util.asbool,						# DefaultDialect
-			"legacy_schema_aliasing": util.asbool			# mssql dialect - not applicable - remove
+			"legacy_schema_aliasing": util.asbool			# mssql dialect - Deprecated and not applicable. Remove.
 		}
 	)
-	# TODO: Remove any engine_config_types that are commented out or inapplicable. Add entries if required. Remove final engine_config_types if completely empty.
+	# engine_config_types is currently unused. Leaving it here for now as an example in case we need it later.
+	# Unsure what its purpose is / how it's used exactly, other than coercing a key's value to a type.
+	# TODO: Remove engine_config_types if unused, or remove those commented out.
 
 #i  label_length: Optional[int]; # optional user-defined max length for SQL labels"""
 	label_length = 128
@@ -1789,6 +1791,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		print('#' * 10, repr(opts))
 		def do_on_connect(conn): # do_on_connect is inherited from Dialect in interfaces.py
 			print('do_on_connect called. Should we set AUTOCOMMIT here?') # TODO: remove line
+			# print('type(conn): ', type(conn)) # <class 'jaydebeapi.Connection'>
+			# print('dir(conn): ', dir(conn))
 			if False:
 				cursor = conn.cursor()
 				#-connection.execute("SET SPECIAL FLAGS etc")
@@ -1946,16 +1950,16 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    raise NotImplementedError()
 
 
-
 #i  def set_isolation_level(
 	def set_isolation_level(self, dbapi_connection, level):
 		if level == "AUTOCOMMIT":
-			dbapi_connection.autocommit = True
+			dbapi_connection.jconn.setAutoCommit(True)
 		else:
-			dbapi_connection.autocommit = False
-			with dbapi_connection.cursor() as cursor:
-				cursor.execute(f"SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL {level}")
-				cursor.execute("COMMIT")
+			dbapi_connection.jconn.setAutoCommit(False)
+			# Use a tuple to look up index values for isolation levels...
+			index = ('NONE', 'READ UNCOMMITTED', 'READ COMMITTED', 'REPEATABLE READ', 'SERIALIZABLE').index(level) # order critical
+			dbapi_connection.jconn.setTransactionIsolation(index)
+	# The ordering of isolation levels must match the constants defined in org.hsqldb.jdbc.JDBCConnection
 
 #i  def get_isolation_level(
 	def get_isolation_level(self, dbapi_connection):
@@ -1992,7 +1996,7 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def get_isolation_level_values(
 	def get_isolation_level_values(self, dbapi_conn):
 		return (
-			# "AUTOCOMMIT", # Commented out to match MySQL
+			"AUTOCOMMIT",		# HSQLDB supports autocommit.
 			"READ UNCOMMITTED", # HSQLDB treats a READ COMMITTED + read only
 			"READ COMMITTED",
 			"REPEATABLE READ",	# HSQLDB upgrades REPEATABLE READ to SERIALIZABLE
