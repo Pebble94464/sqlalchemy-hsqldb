@@ -346,7 +346,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		super().__init__(**kwargs)
 		self.classpath = classpath	# A path to the HSQLDB executable jar file.
 
-
+	_autocommit = False
+	# TODO: _autocommit exists as a temporary measure to override the default setting, until I figure out how to specify it in the connection settings.
 
 #i  CACHE_HIT = CacheStats.CACHE_HIT
 #i  CACHE_MISS = CacheStats.CACHE_MISS
@@ -760,9 +761,9 @@ class HyperSqlDialect(default.DefaultDialect):
 		{
 			# "pool_timeout": util.asint,					# DefaultDialect
 			# "echo": util.bool_or_str("debug"),			# DefaultDialect
-			# "echo_pool": util.bool_or_str("debug"),		# DefaultDialect
+			"echo_pool": util.bool_or_str("debug"),		# DefaultDialect
 			# "pool_recycle": util.asint,					# DefaultDialect
-			# "pool_size": util.asint,						# DefaultDialect
+			"pool_size": util.asint,						# DefaultDialect
 			# "max_overflow": util.asint,					# DefaultDialect
 			# "future": util.asbool,						# DefaultDialect
 			"legacy_schema_aliasing": util.asbool			# mssql dialect - not applicable - remove
@@ -1318,8 +1319,9 @@ class HyperSqlDialect(default.DefaultDialect):
 			# The table type options in HSQLDB are: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
 
 			# Table type information is stored in one of two columns depending on the type.
-			# All temporary types are stored as 'GLOBAL TEMPORARY' in the TABLE_TYPE column,
+			# All* temporary types are stored as 'GLOBAL TEMPORARY' in the TABLE_TYPE column,
 			# while MEMORY, CACHED, and TEXT types are recorded in the HSQLDB_TYPE column.
+			# [* Possibly incorrect. Local temporary tables, a.k.a session tables, are not schema objects. See: (https://hsqldb.org/doc/2.0/guide/sessions-chapt.html)]
 
 			# Combine type information from two columns into a single key value...
 			if table_type.find('TEMP') >= 0:
@@ -1456,20 +1458,9 @@ class HyperSqlDialect(default.DefaultDialect):
 	def _get_server_version_info(self, connection):
 		return connection.exec_driver_sql("CALL DATABASE_VERSION()").scalar()
 
-# WIP: -->
 #i  def _get_default_schema_name(self, connection: Connection) -> str:
 	def _get_default_schema_name(self, connection):
 		return connection.exec_driver_sql("VALUES(CURRENT_SCHEMA)").scalar()
-#i    """Return the string name of the currently selected schema from
-#i    the given connection.
-
-#i    This is used by the default implementation to populate the
-#i    "default_schema_name" attribute and is called exactly
-#i    once upon first connect.
-
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
 #i    """Provide an implementation of ``connection.begin()``, given a
@@ -1485,6 +1476,10 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    """
 
 #i    raise NotImplementedError()
+
+# WIP: -->
+	def do_rollback(self, dbapi_connection):
+		dbapi_connection.rollback()
 
 #i  def do_rollback(self, dbapi_connection: PoolProxiedConnection) -> None:
 #i    """Provide an implementation of ``connection.rollback()``, given
@@ -1524,6 +1519,10 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    """
 
 #i    raise NotImplementedError()
+
+
+	def do_close(self, dbapi_connection):
+		dbapi_connection.close()
 
 #i  def do_close(self, dbapi_connection: DBAPIConnection) -> None:
 #i    """Provide an implementation of ``connection.close()``, given a DBAPI
@@ -1782,6 +1781,29 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    """
 #i    raise NotImplementedError()
 
+# WIP:
+#- jsn; isolation_level, autocommit
+	def on_connect_url(self, url):  # Overrides Dialect.on_connect_url, which returns self.on_connect(). Defined in interfaces.py
+		#- print('BBBBBBBBBBB', repr(url)) # e.g. hsqldb+jaydebeapi://SA:***@localhost/test2
+		opts = url.translate_connect_args()
+		print('#' * 10, repr(opts))
+		def do_on_connect(conn): # do_on_connect is inherited from Dialect in interfaces.py
+			print('do_on_connect called. Should we set AUTOCOMMIT here?') # TODO: remove line
+			if False:
+				cursor = conn.cursor()
+				#-connection.execute("SET SPECIAL FLAGS etc")
+				#- connection.connection.exec_driver_sql('SET AUTOCOMMIT FALSE;')
+			
+				if self._autocommit == True:
+					cursor.execute('SET AUTOCOMMIT TRUE')
+				else:
+					cursor.execute('SET AUTOCOMMIT FALSE')
+			# Setting AUTOCOMMIT to FALSE here appears to disable autocommit for all connections and all sessions.
+			# It might not be correct to set autocommit here.
+		return do_on_connect
+	# TODO: review on_connect_url() - the function above appears experimental, not finalised, and hasn't been checked in.
+
+
 #i  def on_connect_url(self, url: URL) -> Optional[Callable[[Any], Any]]:
 #i    """return a callable which sets up a newly created DBAPI connection.
 
@@ -1923,132 +1945,83 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i    raise NotImplementedError()
 
+
+
 #i  def set_isolation_level(
-#i    self, dbapi_connection: DBAPIConnection, level: IsolationLevel
-#i  ) -> None:
-#i    """Given a DBAPI connection, set its isolation level.
-
-#i    Note that this is a dialect-level method which is used as part
-#i    of the implementation of the :class:`_engine.Connection` and
-#i    :class:`_engine.Engine`
-#i    isolation level facilities; these APIs should be preferred for
-#i    most typical use cases.
-
-#i    If the dialect also implements the
-#i    :meth:`.Dialect.get_isolation_level_values` method, then the given
-#i    level is guaranteed to be one of the string names within that sequence,
-#i    and the method will not need to anticipate a lookup failure.
-
-#i    .. seealso::
-
-#i      :meth:`_engine.Connection.get_isolation_level`
-#i      - view current level
-
-#i      :attr:`_engine.Connection.default_isolation_level`
-#i      - view default level
-
-#i      :paramref:`.Connection.execution_options.isolation_level` -
-#i      set per :class:`_engine.Connection` isolation level
-
-#i      :paramref:`_sa.create_engine.isolation_level` -
-#i      set per :class:`_engine.Engine` isolation level
-
-#i    """
-
-#i    raise NotImplementedError()
 	def set_isolation_level(self, dbapi_connection, level):
-		cursor = dbapi_connection.cursor()
-		cursor.execute(f"SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL {level}")
-		cursor.execute("COMMIT")
-		cursor.close()
+		if level == "AUTOCOMMIT":
+			dbapi_connection.autocommit = True
+		else:
+			dbapi_connection.autocommit = False
+			with dbapi_connection.cursor() as cursor:
+				cursor.execute(f"SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL {level}")
+				cursor.execute("COMMIT")
 
 #i  def get_isolation_level(
-#i    self, dbapi_connection: DBAPIConnection
-#i  ) -> IsolationLevel:
-#i    """Given a DBAPI connection, return its isolation level.
-
-#i    When working with a :class:`_engine.Connection` object,
-#i    the corresponding
-#i    DBAPI connection may be procured using the
-#i    :attr:`_engine.Connection.connection` accessor.
-
-#i    Note that this is a dialect-level method which is used as part
-#i    of the implementation of the :class:`_engine.Connection` and
-#i    :class:`_engine.Engine` isolation level facilities;
-#i    these APIs should be preferred for most typical use cases.
-
-
-#i    .. seealso::
-
-#i      :meth:`_engine.Connection.get_isolation_level`
-#i      - view current level
-
-#i      :attr:`_engine.Connection.default_isolation_level`
-#i      - view default level
-
-#i      :paramref:`.Connection.execution_options.isolation_level` -
-#i      set per :class:`_engine.Connection` isolation level
-
-#i      :paramref:`_sa.create_engine.isolation_level` -
-#i      set per :class:`_engine.Engine` isolation level
-
-
-#i    """
-
-#i    raise NotImplementedError()
 	def get_isolation_level(self, dbapi_connection):
-		cursor = dbapi_connection.cursor()
-		cursor.execute("CALL SESSION_ISOLATION_LEVEL()")
-		val = cursor.fetchone()[0]
-		cursor.close()
-		return val.upper()
-
-
+		"""Given a DBAPI connection, return its isolation level."""
+		with dbapi_connection.cursor() as cursor:
+			cursor.execute("CALL SESSION_ISOLATION_LEVEL()") # Returns READ COMMITTED or SERIALIZABLE
+			row = cursor.fetchone()
+		return row[0].upper()
 
 #i  def get_default_isolation_level(
-#i    self, dbapi_conn: DBAPIConnection
-#i  ) -> IsolationLevel:
-#i    """Given a DBAPI connection, return its isolation level, or
-#i    a default isolation level if one cannot be retrieved.
-
-#i    This method may only raise NotImplementedError and
-#i    **must not raise any other exception**, as it is used implicitly upon
-#i    first connect.
-
-#i    The method **must return a value** for a dialect that supports
-#i    isolation level settings, as this level is what will be reverted
-#i    towards when a per-connection isolation level change is made.
-
-#i    The method defaults to using the :meth:`.Dialect.get_isolation_level`
-#i    method unless overridden by a dialect.
-
-#i    .. versionadded:: 1.3.22
-
-#i    """
-#i    raise NotImplementedError()
+	def get_default_isolation_level(self, dbapi_connection):
+		try:
+			with dbapi_connection.cursor() as cursor:
+				cursor.execute('CALL DATABASE_ISOLATION_LEVEL()') # Returns READ COMMITTED or SERIALIZABLE
+				row = cursor.fetchone()
+			return row[0].upper()
+		except:
+			return 'READ COMMITTED' # HSQLDB's default isolation level
+		# DATABASE_ISOLATION_LEVEL() returns the isolation level for all new sessions.
+		# SESSION_ISOLATION_LEVEL() returns the level for the current session.
+		# Both functions will return the same value on first connection, the point at which get_default_isolation_level is called,
+		# so I presume we could use either.
+		# However calling get_default_isolation_level again (unsure if this ever happens) after an isolation level has changed
+		# will return different values depending on which built-in function was used. We probably want DATABASE_ISOLATION_LEVEL().
+		#
+		# Should we also be returning AUTOCOMMIT?  I don't currently think so. 
 
 	# Isolation level functions
 	# HSQLDB supported isolation levels are documented here - https://hsqldb.org/doc/2.0/guide/sessions-chapt.html
+	# 	i.e. READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ and SERIALIZABLE
 	# Documentation for members of the Dialect interface can be found here - \sqlalchemy\engine\interfaces.py
 	# TODO: Reorder the position of member to match interface.py
 
 #i  def get_isolation_level_values(
 	def get_isolation_level_values(self, dbapi_conn):
 		return (
-			"SERIALIZABLE",
-			"READ UNCOMMITTED",
+			# "AUTOCOMMIT", # Commented out to match MySQL
+			"READ UNCOMMITTED", # HSQLDB treats a READ COMMITTED + read only
 			"READ COMMITTED",
-			"REPEATABLE READ",
-			"AUTOCOMMIT"
+			"REPEATABLE READ",	# HSQLDB upgrades REPEATABLE READ to SERIALIZABLE
+			"SERIALIZABLE"
 		)
 	#- Documented in \sqlalchemy\engine\interfaces.py, line 2495
-
-
+	#
+	# SQLAlchemy treats AUTOCOMMIT like an isolation level.
+	# HSQLDB supports AUTOCOMMIT, but how autocommit and isolation levels are set differs.
+	# e.g.
+	#		SET AUTOCOMMIT FALSE
+	#		SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+	#
+	# Some logic is surely required to set autocommit or isolation level, but where?
+	#
+	# Isolation levels and autocommit are separate in HSQLDB, as in MySQL.
+	# get_isolation_level_values function for MySQL doesn't include AUTOCOMMIT, although MySQL's base.py describes it as a valid value.
+	# MySQL's base.py also says... "For the special AUTOCOMMIT isolation level, DBAPI-specific techniques are used".
+	#
+	# SQLAlchemy documentation examples show autocommit being set, such as...
+	#	with engine.connect() as connection:
+	#		connection.execution_options(isolation_level="AUTOCOMMIT")
+	#
+	# So, where do execution pathS for AUTOCOMMIT and ISOLATION LEVELs diverge?
+	# TODO: check the definitions for execution_options function on engine and connection classes.
 
 #i  def _assert_and_set_isolation_level(
-#i    self, dbapi_conn: DBAPIConnection, level: IsolationLevel
-#i  ) -> None:
-#i    raise NotImplementedError()
+	#- def _assert_and_set_isolation_level( # Inherit from DefaultDialect
+
 
 #i  def get_dialect_cls(cls, url: URL) -> Type[Dialect]:
 #i    """Given a URL, return the :class:`.Dialect` that will be used.
