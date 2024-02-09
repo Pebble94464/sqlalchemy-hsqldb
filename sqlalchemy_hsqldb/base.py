@@ -1474,9 +1474,7 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i    :param dbapi_connection: a DBAPI connection, typically
 #i    proxied within a :class:`.ConnectionFairy`.
-
 #i    """
-
 #i    raise NotImplementedError()
 
 #i  def do_rollback(self, dbapi_connection: PoolProxiedConnection) -> None:
@@ -1485,24 +1483,8 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def do_commit(self, dbapi_connection: PoolProxiedConnection) -> None:
 	#- def do_commit(self, dbapi_connection): # Inherit from DefaultDialect
 
-
 #i  def do_terminate(self, dbapi_connection: DBAPIConnection) -> None:
-#i    """Provide an implementation of ``connection.close()`` that tries as
-#i    much as possible to not block, given a DBAPI
-#i    connection.
-
-#i    In the vast majority of cases this just calls .close(), however
-#i    for some asyncio dialects may call upon different API features.
-
-#i    This hook is called by the :class:`_pool.Pool`
-#i    when a connection is being recycled or has been invalidated.
-
-#i    .. versionadded:: 1.4.41
-
-#i    """
-
-#i    raise NotImplementedError()
-
+	#-  def do_terminate(... # Inherit from DefaultDialect
 
 	def do_close(self, dbapi_connection):
 		dbapi_connection.close()
