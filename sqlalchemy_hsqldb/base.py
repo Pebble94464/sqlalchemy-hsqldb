@@ -6,6 +6,9 @@
 # TODO: Implement support for specifying catalog and schema in Dialect methods if possible. DefaultDialect supports schema only.
 # TODO: Ensure joins occur on the correct schema and catalog.
 # TODO: Ensure all methods raise an error when expected row(s) are missing.
+# TODO: prefer org.hsqldb.jdbc.JDBCConnection methods over executing SQL strings. Rewrite functions as necessary.
+# TODO: prefer JayDeBeApi Connection methods over JDBCConnection methods
+
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
@@ -345,9 +348,6 @@ class HyperSqlDialect(default.DefaultDialect):
 	def __init__(self, classpath=None, **kwargs):
 		super().__init__(**kwargs)
 		self.classpath = classpath	# A path to the HSQLDB executable jar file.
-
-	_autocommit = False
-	# TODO: _autocommit exists as a temporary measure to override the default setting, until I figure out how to specify it in the connection settings.
 
 #i  CACHE_HIT = CacheStats.CACHE_HIT
 #i  CACHE_MISS = CacheStats.CACHE_MISS
@@ -1479,20 +1479,9 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i    raise NotImplementedError()
 
-# WIP: -->
+#i  def do_rollback(self, dbapi_connection: PoolProxiedConnection) -> None:
 	def do_rollback(self, dbapi_connection):
 		dbapi_connection.rollback()
-
-#i  def do_rollback(self, dbapi_connection: PoolProxiedConnection) -> None:
-#i    """Provide an implementation of ``connection.rollback()``, given
-#i    a DB-API connection.
-
-#i    :param dbapi_connection: a DBAPI connection, typically
-#i    proxied within a :class:`.ConnectionFairy`.
-
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def do_commit(self, dbapi_connection: PoolProxiedConnection) -> None:
 #i    """Provide an implementation of ``connection.commit()``, given a
@@ -1783,91 +1772,17 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    """
 #i    raise NotImplementedError()
 
-# WIP:
-#- jsn; isolation_level, autocommit
+#i  def on_connect_url(self, url: URL) -> Optional[Callable[[Any], Any]]:
 	def on_connect_url(self, url):  # Overrides Dialect.on_connect_url, which returns self.on_connect(). Defined in interfaces.py
 		#- print('BBBBBBBBBBB', repr(url)) # e.g. hsqldb+jaydebeapi://SA:***@localhost/test2
 		opts = url.translate_connect_args()
 		print('#' * 10, repr(opts))
 		def do_on_connect(conn): # do_on_connect is inherited from Dialect in interfaces.py
-			print('do_on_connect called. Should we set AUTOCOMMIT here?') # TODO: remove line
-			# print('type(conn): ', type(conn)) # <class 'jaydebeapi.Connection'>
-			# print('dir(conn): ', dir(conn))
-			if False:
-				cursor = conn.cursor()
-				#-connection.execute("SET SPECIAL FLAGS etc")
-				#- connection.connection.exec_driver_sql('SET AUTOCOMMIT FALSE;')
-			
-				if self._autocommit == True:
-					cursor.execute('SET AUTOCOMMIT TRUE')
-				else:
-					cursor.execute('SET AUTOCOMMIT FALSE')
-			# Setting AUTOCOMMIT to FALSE here appears to disable autocommit for all connections and all sessions.
-			# It might not be correct to set autocommit here.
+			#-connection.execute("SET SPECIAL FLAGS etc")
+			pass
 		return do_on_connect
-	# TODO: review on_connect_url() - the function above appears experimental, not finalised, and hasn't been checked in.
-
-
-#i  def on_connect_url(self, url: URL) -> Optional[Callable[[Any], Any]]:
-#i    """return a callable which sets up a newly created DBAPI connection.
-
-#i    This method is a new hook that supersedes the
-#i    :meth:`_engine.Dialect.on_connect` method when implemented by a
-#i    dialect.   When not implemented by a dialect, it invokes the
-#i    :meth:`_engine.Dialect.on_connect` method directly to maintain
-#i    compatibility with existing dialects.   There is no deprecation
-#i    for :meth:`_engine.Dialect.on_connect` expected.
-
-#i    The callable should accept a single argument "conn" which is the
-#i    DBAPI connection itself.  The inner callable has no
-#i    return value.
-
-#i    E.g.::
-
-#i      class MyDialect(default.DefaultDialect):
-#i        # ...
-
-#i        def on_connect_url(self, url):
-#i          def do_on_connect(connection):
-#i            connection.execute("SET SPECIAL FLAGS etc")
-
-#i          return do_on_connect
-
-#i    This is used to set dialect-wide per-connection options such as
-#i    isolation modes, Unicode modes, etc.
-
-#i    This method differs from :meth:`_engine.Dialect.on_connect` in that
-#i    it is passed the :class:`_engine.URL` object that's relevant to the
-#i    connect args.  Normally the only way to get this is from the
-#i    :meth:`_engine.Dialect.on_connect` hook is to look on the
-#i    :class:`_engine.Engine` itself, however this URL object may have been
-#i    replaced by plugins.
-
-#i    .. note::
-
-#i      The default implementation of
-#i      :meth:`_engine.Dialect.on_connect_url` is to invoke the
-#i      :meth:`_engine.Dialect.on_connect` method. Therefore if a dialect
-#i      implements this method, the :meth:`_engine.Dialect.on_connect`
-#i      method **will not be called** unless the overriding dialect calls
-#i      it directly from here.
-
-#i    .. versionadded:: 1.4.3 added :meth:`_engine.Dialect.on_connect_url`
-#i    which normally calls into :meth:`_engine.Dialect.on_connect`.
-
-#i    :param url: a :class:`_engine.URL` object representing the
-#i    :class:`_engine.URL` that was passed to the
-#i    :meth:`_engine.Dialect.create_connect_args` method.
-
-#i    :return: a callable that accepts a single DBAPI connection as an
-#i    argument, or None.
-
-#i    .. seealso::
-
-#i      :meth:`_engine.Dialect.on_connect`
-
-#i    """
-#i    return self.on_connect()
+	#i This is used to set dialect-wide per-connection options such as isolation modes, Unicode modes, etc.
+	# TODO: remove this function if unused.
 
 #i  def on_connect(self) -> Optional[Callable[[Any], Any]]:
 #i    """return a callable which sets up a newly created DBAPI connection.
@@ -1960,6 +1875,7 @@ class HyperSqlDialect(default.DefaultDialect):
 			index = ('NONE', 'READ UNCOMMITTED', 'READ COMMITTED', 'REPEATABLE READ', 'SERIALIZABLE').index(level) # order critical
 			dbapi_connection.jconn.setTransactionIsolation(index)
 	# The ordering of isolation levels must match the constants defined in org.hsqldb.jdbc.JDBCConnection
+	# The JayDeBeApi Connection object currently lacks an autocommit attribute or setautocommit() method.
 
 #i  def get_isolation_level(
 	def get_isolation_level(self, dbapi_connection):
