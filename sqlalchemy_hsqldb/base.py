@@ -1480,19 +1480,11 @@ class HyperSqlDialect(default.DefaultDialect):
 #i    raise NotImplementedError()
 
 #i  def do_rollback(self, dbapi_connection: PoolProxiedConnection) -> None:
-	def do_rollback(self, dbapi_connection):
-		dbapi_connection.rollback()
+	#- def do_rollback(self, dbapi_connection): # Inherit from DefaultDialect
 
 #i  def do_commit(self, dbapi_connection: PoolProxiedConnection) -> None:
-#i    """Provide an implementation of ``connection.commit()``, given a
-#i    DB-API connection.
+	#- def do_commit(self, dbapi_connection): # Inherit from DefaultDialect
 
-#i    :param dbapi_connection: a DBAPI connection, typically
-#i    proxied within a :class:`.ConnectionFairy`.
-
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def do_terminate(self, dbapi_connection: DBAPIConnection) -> None:
 #i    """Provide an implementation of ``connection.close()`` that tries as
