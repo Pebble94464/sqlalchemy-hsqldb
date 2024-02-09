@@ -1486,21 +1486,9 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def do_terminate(self, dbapi_connection: DBAPIConnection) -> None:
 	#-  def do_terminate(... # Inherit from DefaultDialect
 
-	def do_close(self, dbapi_connection):
-		dbapi_connection.close()
-
 #i  def do_close(self, dbapi_connection: DBAPIConnection) -> None:
-#i    """Provide an implementation of ``connection.close()``, given a DBAPI
-#i    connection.
+	#- def do_close(self, dbapi_connection): # Inherit from DefaultDialect
 
-#i    This hook is called by the :class:`_pool.Pool`
-#i    when a connection has been
-#i    detached from the pool, or is being returned beyond the normal
-#i    capacity of the pool.
-
-#i    """
-
-#i    raise NotImplementedError()
 
 #i  def _do_ping_w_event(self, dbapi_connection: DBAPIConnection) -> bool:
 #i    raise NotImplementedError()
