@@ -9,6 +9,7 @@
 # TODO: prefer org.hsqldb.jdbc.JDBCConnection methods over executing SQL strings. Rewrite functions as necessary.
 # TODO: prefer JayDeBeApi Connection methods over JDBCConnection methods
 
+import pdb
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
@@ -1465,6 +1466,11 @@ class HyperSqlDialect(default.DefaultDialect):
 		return connection.exec_driver_sql("VALUES(CURRENT_SCHEMA)").scalar()
 
 #i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
+	def do_begin(self, dbapi_connection):
+		print('### do_begin')
+	# TODO: inherit from default dialect, i.e. just comment out this implementation
+
+#i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
 #i    """Provide an implementation of ``connection.begin()``, given a
 #i    DB-API connection.
 
@@ -1489,153 +1495,85 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def do_close(self, dbapi_connection: DBAPIConnection) -> None:
 	#- def do_close(self, dbapi_connection): # Inherit from DefaultDialect
 
-
 #i  def _do_ping_w_event(self, dbapi_connection: DBAPIConnection) -> bool:
-#i    raise NotImplementedError()
+	#- Don't implement.
 
-#i  def do_ping(self, dbapi_connection: DBAPIConnection) -> bool:
-#i    """ping the DBAPI connection and return True if the connection is
-#i    usable."""
-#i    raise NotImplementedError()
+#i  def do_ping(self, dbapi_connection: DBAPIConnection) -> bool: # """ping the DBAPI connection and return True if the connection is usable."""
+	def do_ping(self, dbapi_connection):
+		# Temporarily overriding to discover when DefaultDialect.do_ping gets called.
+		raise NotImplementedError()
+	# TODO: verify DefaultDialect.do_ping works with HSQLDB.
 
 #i  def do_set_input_sizes(
-#i    self,
-#i    cursor: DBAPICursor,
-#i    list_of_tuples: _GenericSetInputSizesType,
-#i    context: ExecutionContext,
-#i  ) -> Any:
-#i    """invoke the cursor.setinputsizes() method with appropriate arguments
-
-#i    This hook is called if the :attr:`.Dialect.bind_typing` attribute is
-#i    set to the
-#i    :attr:`.BindTyping.SETINPUTSIZES` value.
-#i    Parameter data is passed in a list of tuples (paramname, dbtype,
-#i    sqltype), where ``paramname`` is the key of the parameter in the
-#i    statement, ``dbtype`` is the DBAPI datatype and ``sqltype`` is the
-#i    SQLAlchemy type. The order of tuples is in the correct parameter order.
-
-#i    .. versionadded:: 1.4
-
-#i    .. versionchanged:: 2.0  - setinputsizes mode is now enabled by
-#i    setting :attr:`.Dialect.bind_typing` to
-#i    :attr:`.BindTyping.SETINPUTSIZES`.  Dialects which accept
-#i    a ``use_setinputsizes`` parameter should set this value
-#i    appropriately.
-
-
-#i    """
-#i    raise NotImplementedError()
+	#- def do_set_input_sizes( # inherit from Dialect
 
 #i  def create_xid(self) -> Any:
-#i    """Create a two-phase transaction ID.
-
-#i    This id will be passed to do_begin_twophase(),
-#i    do_rollback_twophase(), do_commit_twophase().  Its format is
-#i    unspecified.
-#i    """
-
-#i    raise NotImplementedError()
+	#- def create_xid(self) -> Any: # Inherit from DefaultDialect
 
 #i  def do_savepoint(self, connection: Connection, name: str) -> None:
-#i    """Create a savepoint with the given name.
-
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param name: savepoint name.
-
-#i    """
-
-#i    raise NotImplementedError()
+	#-  def do_savepoint( # inherit from DefaultDialect
 
 #i  def do_rollback_to_savepoint(
-#i    self, connection: Connection, name: str
-#i  ) -> None:
-#i    """Rollback a connection to the named savepoint.
-
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param name: savepoint name.
-
-#i    """
-
-#i    raise NotImplementedError()
+	#-  def do_rollback_to_savepoint( inherit from DefaultDialect
+	# TODO: HSQLDB's ROLLBACK [WORK] TO SAVEPOINT has an optional keyword. What is it and does it need implementing?
 
 #i  def do_release_savepoint(self, connection: Connection, name: str) -> None:
-#i    """Release the named savepoint on a connection.
-
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param name: savepoint name.
-#i    """
-
-#i    raise NotImplementedError()
+	#-  def do_release_savepoint( # Inherit from DefaultDialect
 
 #i  def do_begin_twophase(self, connection: Connection, xid: Any) -> None:
-#i    """Begin a two phase transaction on the given connection.
-
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param xid: xid
-
-#i    """
-
-#i    raise NotImplementedError()
+	def do_begin_twophase(self, connection, xid):
+		"""Begin a two phase transaction on the given connection.
+		:param connection: a :class:`_engine.Connection`.
+		:param xid: xid
+		"""
+		#- print(f'### do_begin_twophase: xid={xid}')
+		self.do_begin(connection.connection)
 
 #i  def do_prepare_twophase(self, connection: Connection, xid: Any) -> None:
-#i    """Prepare a two phase transaction on the given connection.
+	def do_prepare_twophase(self, connection, xid):
+		"""Prepare a two phase transaction on the given connection.
+		:param connection: a :class:`_engine.Connection`.
+		:param xid: xid
+		"""
+		#- print(f'### do_prepare_twophase: xid={xid}') #-
+		pass
 
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param xid: xid
-
-#i    """
-
-#i    raise NotImplementedError()
-
-#i  def do_rollback_twophase(
-#i    self,
-#i    connection: Connection,
-#i    xid: Any,
-#i    is_prepared: bool = True,
-#i    recover: bool = False,
-#i  ) -> None:
-#i    """Rollback a two phase transaction on the given connection.
-
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param xid: xid
-#i    :param is_prepared: whether or not
-#i    :meth:`.TwoPhaseTransaction.prepare` was called.
-#i    :param recover: if the recover flag was passed.
-
-#i    """
-
-#i    raise NotImplementedError()
+#i def do_rollback_twophase(
+	def do_rollback_twophase(self, connection, xid, is_prepared=True, recover=False):
+		"""Rollback a two phase transaction on the given connection.
+		:param connection: a :class:`_engine.Connection`.
+		:param xid: xid
+		:param is_prepared: whether or not :meth:`.TwoPhaseTransaction.prepare` was called.
+		:param recover: if the recover flag was passed.
+		"""
+		#- print(f'### do_rollback_twophase: is_prepared={is_prepared}, recover={recover}') #-
+		self.do_rollback(connection.connection)
 
 #i  def do_commit_twophase(
-#i    self,
-#i    connection: Connection,
-#i    xid: Any,
-#i    is_prepared: bool = True,
-#i    recover: bool = False,
-#i  ) -> None:
-#i    """Commit a two phase transaction on the given connection.
-
-
-#i    :param connection: a :class:`_engine.Connection`.
-#i    :param xid: xid
-#i    :param is_prepared: whether or not
-#i    :meth:`.TwoPhaseTransaction.prepare` was called.
-#i    :param recover: if the recover flag was passed.
-
-#i    """
-
-#i    raise NotImplementedError()
+	def do_commit_twophase(self, connection, xid, is_prepared=True, recover=False): 
+		"""Commit a two phase transaction on the given connection.
+		:param connection: a :class:`_engine.Connection`.
+		:param xid: xid
+		:param is_prepared: whether or not
+		:meth:`.TwoPhaseTransaction.prepare` was called.
+		:param recover: if the recover flag was passed.
+		"""
+		#- print(f'### do_commit_twophase: xid={xid}, is_prepared={is_prepared}, recover={recover}') #-
+		if not is_prepared:
+			self.do_prepare_twophase(connection, xid)
+		self.do_commit(connection.connection)
 
 #i  def do_recover_twophase(self, connection: Connection) -> List[Any]:
-#i    """Recover list of uncommitted prepared two phase transaction
-#i    identifiers on the given connection.
+	def do_recover_twophase(self, connection):
+		"""Recover list of uncommitted prepared two phase transaction identifiers on the given connection.
+		:param connection: a :class:`_engine.Connection`.
+		"""
+		#- print(f'### do_recover_twophase') #-
+		raise NotImplementedError("Recover two phase query for HyperSqlDialect not implemented.")
 
-#i    :param connection: a :class:`_engine.Connection`.
+# TODO: fully implement and test the five methods above for two-phase transactions. For more info see JSN_notes.md and scratch_twophase.py
 
-#i    """
-
-#i    raise NotImplementedError()
-
+# WIP: -->
 #i  def _deliver_insertmanyvalues_batches(
 #i    self,
 #i    cursor: DBAPICursor,
