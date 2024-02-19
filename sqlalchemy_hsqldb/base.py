@@ -1616,40 +1616,8 @@ class HyperSqlDialect(default.DefaultDialect):
 	# or what may trigger them, apart from statement 'DISCONNECT'.
 	# TODO: remove exploratory code from the is_disconnect function.
 
-# WIP: -->
 #i  def connect(self, *cargs: Any, **cparams: Any) -> DBAPIConnection:
-#i    r"""Establish a connection using this dialect's DBAPI.
-
-#i    The default implementation of this method is::
-
-#i      def connect(self, *cargs, **cparams):
-#i        return self.dbapi.connect(*cargs, **cparams)
-
-#i    The ``*cargs, **cparams`` parameters are generated directly
-#i    from this dialect's :meth:`.Dialect.create_connect_args` method.
-
-#i    This method may be used for dialects that need to perform programmatic
-#i    per-connection steps when a new connection is procured from the
-#i    DBAPI.
-
-
-#i    :param \*cargs: positional parameters returned from the
-#i    :meth:`.Dialect.create_connect_args` method
-
-#i    :param \*\*cparams: keyword parameters returned from the
-#i    :meth:`.Dialect.create_connect_args` method.
-
-#i    :return: a DBAPI connection, typically from the :pep:`249` module
-#i    level ``.connect()`` function.
-
-#i    .. seealso::
-
-#i      :meth:`.Dialect.create_connect_args`
-
-#i      :meth:`.Dialect.on_connect`
-
-#i    """
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def on_connect_url(self, url: URL) -> Optional[Callable[[Any], Any]]:
 	def on_connect_url(self, url):  # Overrides Dialect.on_connect_url, which returns self.on_connect(). Defined in interfaces.py
@@ -1664,58 +1632,16 @@ class HyperSqlDialect(default.DefaultDialect):
 	# TODO: remove this function if unused.
 
 #i  def on_connect(self) -> Optional[Callable[[Any], Any]]:
-#i    """return a callable which sets up a newly created DBAPI connection.
+	def on_connect(self):
+		def do_on_connect(connection):
+			# connection.execute("SET SPECIAL FLAGS etc")
+			pass
+		return do_on_connect
+	# This is used to set dialect-wide per-connection options such as isolation modes, Unicode modes, etc.
+	# No event listener is generated if on_connect returns None instead of a callable.
+	# TODO: remove on_connect function if unused
 
-#i    The callable should accept a single argument "conn" which is the
-#i    DBAPI connection itself.  The inner callable has no
-#i    return value.
-
-#i    E.g.::
-
-#i      class MyDialect(default.DefaultDialect):
-#i        # ...
-
-#i        def on_connect(self):
-#i          def do_on_connect(connection):
-#i            connection.execute("SET SPECIAL FLAGS etc")
-
-#i          return do_on_connect
-
-#i    This is used to set dialect-wide per-connection options such as
-#i    isolation modes, Unicode modes, etc.
-
-#i    The "do_on_connect" callable is invoked by using the
-#i    :meth:`_events.PoolEvents.connect` event
-#i    hook, then unwrapping the DBAPI connection and passing it into the
-#i    callable.
-
-#i    .. versionchanged:: 1.4 the on_connect hook is no longer called twice
-#i    for the first connection of a dialect.  The on_connect hook is still
-#i    called before the :meth:`_engine.Dialect.initialize` method however.
-
-#i    .. versionchanged:: 1.4.3 the on_connect hook is invoked from a new
-#i    method on_connect_url that passes the URL that was used to create
-#i    the connect args.   Dialects can implement on_connect_url instead
-#i    of on_connect if they need the URL object that was used for the
-#i    connection in order to get additional context.
-
-#i    If None is returned, no event listener is generated.
-
-#i    :return: a callable that accepts a single DBAPI connection as an
-#i    argument, or None.
-
-#i    .. seealso::
-
-#i      :meth:`.Dialect.connect` - allows the DBAPI ``connect()`` sequence
-#i      itself to be controlled.
-
-#i      :meth:`.Dialect.on_connect_url` - supersedes
-#i      :meth:`.Dialect.on_connect` to also receive the
-#i      :class:`_engine.URL` object in context.
-
-#i    """
-#i    return None
-
+# WIP: -->
 #i  def reset_isolation_level(self, dbapi_connection: DBAPIConnection) -> None:
 #i    """Given a DBAPI connection, revert its isolation to the default.
 
