@@ -1573,71 +1573,50 @@ class HyperSqlDialect(default.DefaultDialect):
 
 # TODO: fully implement and test the five methods above for two-phase transactions. For more info see JSN_notes.md and scratch_twophase.py
 
-# WIP: -->
 #i  def _deliver_insertmanyvalues_batches(
-#i    self,
-#i    cursor: DBAPICursor,
-#i    statement: str,
-#i    parameters: _DBAPIMultiExecuteParams,
-#i    generic_setinputsizes: Optional[_GenericSetInputSizesType],
-#i    context: ExecutionContext,
-#i  ) -> Iterator[_InsertManyValuesBatch]:
-#i    """convert executemany parameters for an INSERT into an iterator
-#i    of statement/single execute values, used by the insertmanyvalues
-#i    feature.
-
-#i    """
-#i    raise NotImplementedError()
+	#- Don't implement.
 
 #i  def do_executemany(
-#i    self,
-#i    cursor: DBAPICursor,
-#i    statement: str,
-#i    parameters: _DBAPIMultiExecuteParams,
-#i    context: Optional[ExecutionContext] = None,
-#i  ) -> None:
-#i    """Provide an implementation of ``cursor.executemany(statement,
-#i    parameters)``."""
-
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def do_execute(
-#i    self,
-#i    cursor: DBAPICursor,
-#i    statement: str,
-#i    parameters: Optional[_DBAPISingleExecuteParams],
-#i    context: Optional[ExecutionContext] = None,
-#i  ) -> None:
-#i    """Provide an implementation of ``cursor.execute(statement,
-#i    parameters)``."""
-
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def do_execute_no_params(
-#i    self,
-#i    cursor: DBAPICursor,
-#i    statement: str,
-#i    context: Optional[ExecutionContext] = None,
-#i  ) -> None:
-#i    """Provide an implementation of ``cursor.execute(statement)``.
-
-#i    The parameter collection should not be sent.
-
-#i    """
-
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def is_disconnect(
-#i    self,
-#i    e: Exception,
-#i    connection: Optional[Union[PoolProxiedConnection, DBAPIConnection]],
-#i    cursor: Optional[DBAPICursor],
-#i  ) -> bool:
-#i    """Return True if the given DB-API error indicates an invalid
-#i    connection"""
+	def is_disconnect(self, e, connection, cursor):
+		"""Return True if the given DB-API error indicates an invalid connection"""
+		if isinstance(e, (
+			# self.dbapi.InterfaceError,	# my, pg
+			self.dbapi.DatabaseError,
+			# self.dbapi.DataError,
+			# self.dbapi.OperationalError,	# my
+			# self.dbapi.IntegrityError,
+			# self.dbapi.InternalError,
+			# self.dbapi.ProgrammingError,	# my
+			# self.dbapi.NotSupportedError,
+			)):
+			# TODO: remove any commented out errors above that don't apply.
+			return True
 
-#i    raise NotImplementedError()
+		# Log unhandled exceptions...
+		if True or isinstance(e, (self.dbapi.Error, self.dbapi.Warning)): # TODO: remove 'True or'
+			print('### is_disconnect')
+			print('### connection is None: ', connection == None)
+			print('### type(e): ', type(e))
+			print('### repr(e): ', repr(e))
+			raise NotImplementedError('Update is_disconnect to ')
+			return True
+		# TODO: Remove the above test
 
+		return False
+	# Unsure which errors are regarded as an 'invalid connection',
+	# or what may trigger them, apart from statement 'DISCONNECT'.
+	# TODO: remove exploratory code from the is_disconnect function.
+
+# WIP: -->
 #i  def connect(self, *cargs: Any, **cparams: Any) -> DBAPIConnection:
 #i    r"""Establish a connection using this dialect's DBAPI.
 
