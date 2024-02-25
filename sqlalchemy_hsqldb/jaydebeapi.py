@@ -1,6 +1,9 @@
 
 # TODO: Implement the jdbc driver in this file.
 # TODO1: fix "AttributeError("'HyperSqlDialect_jaydebeapi' object has no attribute '_on_connect_isolation_level'")"
+#		 Isolation level can be passed as a query string parameter, e.g.
+#			hsqldb+jaydebeapi://SA:@localhost:9001/test2?isolation_level=READ+COMMITTED
+#		 HyperSqlDialect.on_connect_url method is then used to set dialect-wide per-connection options such as isolation mode. 
 
 from .base import HyperSqlDialect
 from types import ModuleType

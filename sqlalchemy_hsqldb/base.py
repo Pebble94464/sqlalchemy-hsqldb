@@ -206,10 +206,72 @@ ischema_names = {
 }
 
 
-
 # TODO: Implement HyperSqlCompiler. About 400 lines. The derived subclass is also long.
+#- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 class HyperSqlCompiler(compiler.SQLCompiler):
 
+#i __init__; sql; ms; ora
+	def __init__(self, *args, **kwargs):
+		#- self.tablealiases = {} # mssql dialect's tablealiases dict.
+		super().__init__(*args, **kwargs)
+	# TODO: remove this method if unused
+
+#i _assert_pg_ts_ext; pg
+#i _check_can_use_fetch_limit; ms
+#i _get_limit_or_fetch; ms; ora
+#i _get_nonansi_join_whereclause; ora
+#i _mariadb_regexp_flags; my
+#i _on_conflict_target; pg
+#i _regexp_match; my; pg
+#i _render_json_extract_from_binary; ms; my
+#i _row_limit_clause; sql; ms; ora
+#i _schema_aliased_table; ms
+#i _use_top; ms
+#i _with_legacy_schema_aliasing; ms
+
+#i default_from; sql; my; ora	# Inherit from base class
+	#- def default_from(self):
+	#- 	"""Called when a ``SELECT`` statement has no froms, and no ``FROM`` clause is to be appended.
+	#- 	The Oracle compiler tacks a "FROM DUAL" to the statement.
+	#- 	"""
+	#- 	if _compatibility_mode == 'oracle':
+	#- 		return " FROM DUAL"
+	#- 	return ""
+	#- HSQLDB supports 'FROM DUAL' when in Oracle compatibility mode, otherwise it does not and raises an error if used. 
+	# TODO: Consider a separate HyperSqlCompiler class for each of HSQLDB's compatibility modes.
+
+# WIP: HyperSqlCompiler -->
+	def delete_extra_from_clause(self, delete_stmt, from_table, extra_froms, from_hints, **kw):
+		"""Render the DELETE .. FROM clause."""
+		raise NotImplementedError(
+			"HSQLDB doesn't support multiple tables in DELETE FROM statements",
+			"e.g. DELETE FROM t1, t2 WHERE t1.c1 = t2.c1"
+		)
+		return "FROM " + ", ".join(
+			t._compiler_dispatch(self, asfrom=True, fromhints=from_hints, **kw)
+			for t in [from_table] + extra_froms
+		) # e.g. returns "FROM t1, t2"
+		# HSQLDB doesn't natively support multiple tables in DELETE FROM statements.
+		# See:
+		#	https://hsqldb.org/doc/2.0/guide/dataaccess-chapt.html#dac_delete_statement
+		#	https://stackoverflow.com/questions/7916380/delete-multitable-hsqldb
+		# TODO: This function can be removed.
+
+
+#i delete_table_clause; sql; ms; my
+#i fetch_clause; sql; pg
+#i for_update_clause; sql; ms; my; ora; pg
+#i format_from_hint_text; sql; pg
+#i function_argspec; sql; ora
+#i get_crud_hint_text; sql; ms
+#i get_cte_preamble; sql; ms; ora
+#i get_from_hint_text; sql; ms; my
+#i get_render_as_alias_suffix; sql; ora
+#i get_select_hint_text; sql; ora
+#i get_select_precolumns; sql; ms; my; pg
+#i label_select_column; ms
+
+#i limit_clause; sql; ms; my; ora; pg
 	def limit_clause(self, select, **kw):
 		#- raise NotImplementedError
 		text = ""
@@ -221,6 +283,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 			text += " OFFSET " + self.process(select._offset_clause, **kw)
 		return text
 
+#i order_by_clause; sql; ms
+
+#i render_bind_cast; sql; pg
 	def render_bind_cast(self, type_, dbapi_type, sqltext):
 		return super().render_bind_cast(type_, dbapi_type, sqltext)
 	# 'render_bind_cast' gets called when HyperSqlDialect.bind_typing = BindTyping.BIND_CASTS
@@ -229,12 +294,83 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	# An alternative is BindingTyping.SETINPUTSIZES, which doesn't appear to be supported by JPype.
 	# TODO: investigate if render_bind_cast is appropriate for HSQLDB, or remove this method if unused.
 
+#i render_literal_value; sql; my; pg
+#i returning_clause; sql; ms; ora
+#i translate_select_structure; ms; ora
+#i update_from_clause; sql; ms; my; pg
+#i update_limit_clause; sql; my
+#i update_tables_clause; sql; my
+#i visit_aggregate_order_by; pg
+#i visit_aggregate_strings_func; ms; my; ora; pg
+#i visit_alias; sql; ms
+#i visit_array; pg
+#i visit_binary; sql; ms
+#i visit_bitwise_xor_op_binary; pg
+#i visit_cast; sql; my
+#i visit_char_length_func; ms; ora
+#i visit_column; sql; ms
+#i visit_concat_op_binary; ms; my
+#i visit_concat_op_expression_clauselist; ms; my
+#i visit_current_date_func; ms
+#i visit_empty_set_expr; sql; ms; my; ora; pg
+#i visit_extract; sql; ms
+#i visit_false; sql; ms; my; ora
+#i visit_function; sql; ora
+#i visit_getitem_binary; pg
+#i visit_ilike_case_insensitive_operand; sql; pg
+#i visit_ilike_op_binary; sql; pg
+#i visit_is_distinct_from_binary; ms; my; ora
+#i visit_is_not_distinct_from_binary; ms; my; ora
+#i visit_join; sql; my; ora
+#i visit_json_getitem_op_binary; ms; my; pg
+#i visit_json_path_getitem_op_binary; ms; my; pg
+#i visit_length_func; ms
+#i visit_match_op_binary; ms; my; ora; pg
+#i visit_mod_binary; sql; ora
+#i visit_mysql_match; my
+#i visit_not_ilike_op_binary; sql; pg
+#i visit_not_regexp_match_op_binary; sql; my; ora; pg
+#i visit_now_func; ms; ora
+#i visit_on_conflict_do_nothing; pg
+#i visit_on_conflict_do_update; pg
+#i visit_on_duplicate_key_update; my
+#i visit_outer_join_column; ora
+#i visit_phraseto_tsquery_func; pg
+#i visit_plainto_tsquery_func; pg
+#i visit_random_func; my
+#i visit_regexp_match_op_binary; sql; my; ora; pg
+#i visit_regexp_replace_op_binary; sql; my; ora; pg
+#i visit_rollback_to_savepoint; sql; ms
+#i visit_rollup_func; my
+#i visit_savepoint; sql; ms
+#i visit_sequence; sql; ms; my; ora; pg
+#i visit_slice; pg
+#i visit_substring_func; pg
+#i visit_sysdate_func; my
+#i visit_table_valued_column; sql; ora
+#i visit_table; sql; ms
+#i visit_to_tsquery_func; pg
+#i visit_to_tsvector_func; pg
+#i visit_true; sql; ms; my; ora
+#i visit_try_cast; ms
+#i visit_ts_headline_func; pg
+#i visit_typeclause; sql; my
+#i visit_websearch_to_tsquery_func; pg
 
-#- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 
 
 
 
+
+
+
+
+
+
+
+
+
+# WIP: HyperSqlDDLCompiler -->
 # TODO: Implement HyperSqlDDLCompiler. About 100 lines, 7 methods.
 class HyperSqlDDLCompiler(compiler.DDLCompiler):
 	pass
@@ -242,10 +378,9 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 
 
 
-
+# WIP: HyperSqlTypeCompiler -->
 # TODO: Implement HyperSqlTypeCompiler. About 50-150 lines, 12-25 methods.
 # TODO: Solve mystery. Access dialect has 'type_compiler', others have 'type_compiler_cls'
-
 class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
 
 	# TODO: remove visit_Boolean below...
@@ -259,7 +394,7 @@ class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
 		# This function gets called for Boolean and BOOLEAN, but duplicates the default BOOLEAN behaviour, so remove it.
 		return _HyperBoolean.__visit_name__
 
-
+# WIP: HyperSqlIdentifierPreparer -->
 # TODO: Implement HyperSqlIdentifierPreparer. About 20-55 lines, 2-5 methods.
 class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
 	# Reserved words can be a union of sets 1 and 3, or 2 and 3.
@@ -322,7 +457,7 @@ Identifier length must be between 1 and 128 characters.
 """
 
 
-
+# WIP: HyperSqlIdentifierPreparer -->
 # TODO: Implement HyperSqlExecutionContext. About 55-165 lines, 2-8 methods.
 class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	pass
@@ -347,8 +482,13 @@ class HyperSqlDialect(default.DefaultDialect):
 	"""HyperSqlDialect implementation of Dialect"""
 
 	def __init__(self, classpath=None, **kwargs):
-		super().__init__(**kwargs)
+		#- super().__init__(**kwargs)
+		default.DefaultDialect.__init__(self, **kwargs)
 		self.classpath = classpath	# A path to the HSQLDB executable jar file.
+
+# WIP: --> Where to set the default isolation level?
+		# self.isolation_level = 'READ COMMITTED'
+
 
 #i  CACHE_HIT = CacheStats.CACHE_HIT
 #i  CACHE_MISS = CacheStats.CACHE_MISS
@@ -666,16 +806,9 @@ class HyperSqlDialect(default.DefaultDialect):
 	#
 	# TODO: complete construct_arguments
 
-
-
-
-
-
-
 #i  reflection_options: Sequence[str] = () # Sequence of string names to be passed as "reflection options" when using Table.autoload_with.
 	reflection_options = ()
 	# TODO: reflection_options is currently empty. Remove or comment out if unused.
-
 
 #i  dbapi_exception_translation_map: Mapping[str, str] = util.EMPTY_DICT
 #i  """A dictionary of names that will contain as values the names of
@@ -702,7 +835,6 @@ class HyperSqlDialect(default.DefaultDialect):
 	# See: (https://peps.python.org/pep-0249/#exceptions)
 	# In most cases it will be empty apparently.
 	# TODO: update dbapi_exception_translation_map as and when dbapi errors are encountered. Remove if not it remains empty.
-
 
 #i  supports_comments: bool; """Indicates the dialect supports comment DDL on tables and columns."""
 	supports_comments = True
@@ -1620,16 +1752,15 @@ class HyperSqlDialect(default.DefaultDialect):
 	#- Inherit from DefaultDialect
 
 #i  def on_connect_url(self, url: URL) -> Optional[Callable[[Any], Any]]:
-	def on_connect_url(self, url):  # Overrides Dialect.on_connect_url, which returns self.on_connect(). Defined in interfaces.py
-		#- print('BBBBBBBBBBB', repr(url)) # e.g. hsqldb+jaydebeapi://SA:***@localhost/test2
-		opts = url.translate_connect_args()
-		print('#' * 10, repr(opts))
-		def do_on_connect(conn): # do_on_connect is inherited from Dialect in interfaces.py
-			#-connection.execute("SET SPECIAL FLAGS etc")
-			pass
+	def on_connect_url(self, url):
+		from sqlalchemy.engine.url import URL
+		isolation_level = url.query.get('isolation_level', None)
+		print('### connect_args: ', repr(url.translate_connect_args())) #- e.g. {'host': 'localhost', 'database': 'test2', 'username': 'SA', 'port': 9001}
+		def do_on_connect(conn):
+			if isolation_level:
+				self.set_isolation_level(conn, isolation_level)
 		return do_on_connect
 	#i This is used to set dialect-wide per-connection options such as isolation modes, Unicode modes, etc.
-	# TODO: remove this function if unused.
 
 #i  def on_connect(self) -> Optional[Callable[[Any], Any]]:
 	def on_connect(self):
@@ -1641,34 +1772,8 @@ class HyperSqlDialect(default.DefaultDialect):
 	# No event listener is generated if on_connect returns None instead of a callable.
 	# TODO: remove on_connect function if unused
 
-# WIP: -->
 #i  def reset_isolation_level(self, dbapi_connection: DBAPIConnection) -> None:
-#i    """Given a DBAPI connection, revert its isolation to the default.
-
-#i    Note that this is a dialect-level method which is used as part
-#i    of the implementation of the :class:`_engine.Connection` and
-#i    :class:`_engine.Engine`
-#i    isolation level facilities; these APIs should be preferred for
-#i    most typical use cases.
-
-#i    .. seealso::
-
-#i      :meth:`_engine.Connection.get_isolation_level`
-#i      - view current level
-
-#i      :attr:`_engine.Connection.default_isolation_level`
-#i      - view default level
-
-#i      :paramref:`.Connection.execution_options.isolation_level` -
-#i      set per :class:`_engine.Connection` isolation level
-
-#i      :paramref:`_sa.create_engine.isolation_level` -
-#i      set per :class:`_engine.Engine` isolation level
-
-#i    """
-
-#i    raise NotImplementedError()
-
+	#- Inherit from DefaultDialect
 
 #i  def set_isolation_level(
 	def set_isolation_level(self, dbapi_connection, level):
@@ -1747,144 +1852,31 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def _assert_and_set_isolation_level(
 	#- def _assert_and_set_isolation_level( # Inherit from DefaultDialect
 
-
 #i  def get_dialect_cls(cls, url: URL) -> Type[Dialect]:
-#i    """Given a URL, return the :class:`.Dialect` that will be used.
-
-#i    This is a hook that allows an external plugin to provide functionality
-#i    around an existing dialect, by allowing the plugin to be loaded
-#i    from the url based on an entrypoint, and then the plugin returns
-#i    the actual dialect to be used.
-
-#i    By default this just returns the cls.
-
-#i    """
-#i    return cls
+	#- Inherit from Dialect
 
 #i  def get_async_dialect_cls(cls, url: URL) -> Type[Dialect]:
-#i    """Given a URL, return the :class:`.Dialect` that will be used by
-#i    an async engine.
-
-#i    By default this is an alias of :meth:`.Dialect.get_dialect_cls` and
-#i    just returns the cls. It may be used if a dialect provides
-#i    both a sync and async version under the same name, like the
-#i    ``psycopg`` driver.
-
-#i    .. versionadded:: 2
-
-#i    .. seealso::
-
-#i      :meth:`.Dialect.get_dialect_cls`
-
-#i    """
-#i    return cls.get_dialect_cls(url)
+	#- Inherit from Dialect
 
 #i  def load_provisioning(cls) -> None:
-#i    """set up the provision.py module for this dialect.
-
-#i    For dialects that include a provision.py module that sets up
-#i    provisioning followers, this method should initiate that process.
-
-#i    A typical implementation would be::
-
-#i      @classmethod
-#i      def load_provisioning(cls):
-#i        __import__("mydialect.provision")
-
-#i    The default method assumes a module named ``provision.py`` inside
-#i    the owning package of the current dialect, based on the ``__module__``
-#i    attribute::
-
-#i      @classmethod
-#i      def load_provisioning(cls):
-#i        package = ".".join(cls.__module__.split(".")[0:-1])
-#i        try:
-#i          __import__(package + ".provision")
-#i        except ImportError:
-#i          pass
-
-#i    .. versionadded:: 1.3.14
-
-#i    """
+	#- Inherit from DefaultDialect
 
 #i  def engine_created(cls, engine: Engine) -> None:
-#i    """A convenience hook called before returning the final
-#i    :class:`_engine.Engine`.
-
-#i    If the dialect returned a different class from the
-#i    :meth:`.get_dialect_cls`
-#i    method, then the hook is called on both classes, first on
-#i    the dialect class returned by the :meth:`.get_dialect_cls` method and
-#i    then on the class on which the method was called.
-
-#i    The hook should be used by dialects and/or wrappers to apply special
-#i    events to the engine or its components.   In particular, it allows
-#i    a dialect-wrapping class to apply dialect-level events.
-
-#i    """
+	#- Inherit from Default Dialect
 
 #i  def get_driver_connection(self, connection: DBAPIConnection) -> Any:
-#i    """Returns the connection object as returned by the external driver
-#i    package.
-
-#i    For normal dialects that use a DBAPI compliant driver this call
-#i    will just return the ``connection`` passed as argument.
-#i    For dialects that instead adapt a non DBAPI compliant driver, like
-#i    when adapting an asyncio driver, this call will return the
-#i    connection-like object as returned by the driver.
-
-#i    .. versionadded:: 1.4.24
-
-#i    """
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def set_engine_execution_options(
-#i    self, engine: Engine, opts: CoreExecuteOptionsParameter
-#i  ) -> None:
-#i    """Establish execution options for a given engine.
-
-#i    This is implemented by :class:`.DefaultDialect` to establish
-#i    event hooks for new :class:`.Connection` instances created
-#i    by the given :class:`.Engine` which will then invoke the
-#i    :meth:`.Dialect.set_connection_execution_options` method for that
-#i    connection.
-
-#i    """
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def set_connection_execution_options(
-#i    self, connection: Connection, opts: CoreExecuteOptionsParameter
-#i  ) -> None:
-#i    """Establish execution options for a given connection.
-
-#i    This is implemented by :class:`.DefaultDialect` in order to implement
-#i    the :paramref:`_engine.Connection.execution_options.isolation_level`
-#i    execution option.  Dialects can intercept various execution options
-#i    which may need to modify state on a particular DBAPI connection.
-
-#i    .. versionadded:: 1.4
-
-#i    """
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
 #i  def get_dialect_pool_class(self, url: URL) -> Type[Pool]:
-#i    """return a Pool class to use for a given URL"""
-#i    raise NotImplementedError()
+	#- Inherit from DefaultDialect
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# WIP: -->
 
 	# Set 'supports_schemas' to false to disable schema-level tests
 	supports_schemas = False
@@ -1921,77 +1913,4 @@ class HyperSqlDialect(default.DefaultDialect):
 	# TODO: verify the recently added setting above is required, and works as expected.
 	# TODO: find out where the above property is from - it's not part of the Dialect interface.
 
-
-
-"""
-	# @reflection.cache
-	# def get_check_constraints(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_foreign_keys(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_indexes(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_pk_constraint(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_schema_names(self, connection, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_sequence_names(self, connection, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_table_comment(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_table_names(self, connection, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_table_options(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_temp_table_names(self, connection, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_unique_constraints(self, connection, table_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_view_definition(self, connection, view_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def get_view_names(self, connection, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-
-	# @reflection.cache
-	# def has_sequence(self, connection, sequence_name, schema=None, **kw):
-	# 	# Does this actually need implementing, and does it belong to this class?
-	# 	raise NotImplementedError()
-"""
 
