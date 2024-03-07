@@ -240,9 +240,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	#- HSQLDB supports 'FROM DUAL' when in Oracle compatibility mode, otherwise it does not and raises an error if used. 
 	# TODO: Consider a separate HyperSqlCompiler class for each of HSQLDB's compatibility modes.
 
-# WIP: HyperSqlCompiler -->
 	def delete_extra_from_clause(self, delete_stmt, from_table, extra_froms, from_hints, **kw):
-		"""Render the DELETE .. FROM clause."""
+		"""Render the DELETE .. FROM clause. Not currently supported by HSQLDB. """
 		raise NotImplementedError(
 			"HSQLDB doesn't support multiple tables in DELETE FROM statements",
 			"e.g. DELETE FROM t1, t2 WHERE t1.c1 = t2.c1"
@@ -257,8 +256,20 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		#	https://stackoverflow.com/questions/7916380/delete-multitable-hsqldb
 		# TODO: This function can be removed.
 
+#i delete_table_clause; sql; ms; my #- inherit from SQLCompiler
 
-#i delete_table_clause; sql; ms; my
+# WIP: HyperSqlCompiler -->
+
+	def fetch_clause(
+				self,
+				select,
+				fetch_clause=None,
+				require_offset=False,
+				use_literal_execute_for_simple_int=False,
+				**kw
+	):
+		raise NotImplementedError('fetch_clause')
+
 #i fetch_clause; sql; pg
 #i for_update_clause; sql; ms; my; ora; pg
 #i format_from_hint_text; sql; pg
@@ -373,8 +384,262 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 # WIP: HyperSqlDDLCompiler -->
 # TODO: Implement HyperSqlDDLCompiler. About 100 lines, 7 methods.
 class HyperSqlDDLCompiler(compiler.DDLCompiler):
-	pass
+	# pass
 #- DDLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
+
+#i define_constraint_cascades; ddl; ora
+	#- def define_constraint_cascades(self, constraint): # inherit from DDLCompiler
+	#- 	raise NotImplementedError('xxx: define_constraint_cascades')
+
+#i define_constraint_deferrability; ddl
+	def define_constraint_deferrability(self, constraint):
+		if constraint.initially is not None:
+			raise exc.CompileError("Constraint deferrability is not currently supported")
+		return super().define_constraint_deferrability(self, constraint)
+	# "The deferrable characteristic is an optional element of CONSTRAINT definition, not yet supported by HyperSQL."
+
+#i define_constraint_match; ddl; my
+	def define_constraint_match(self, constraint):
+		assert constraint.match in ['FULL', 'PARTIAL', 'SIMPLE']
+		return compiler.DDLCompiler.define_constraint_match(self, constraint)
+	# MATCH is a keyword for HSQLDB, used with FK constraints.
+	# See: https://hsqldb.org/doc/2.0/guide/databaseobjects-chapt.html
+	# TODO: verify inherited define_constraint_match method works as expected for HSQLDB. If so, delete this override.
+
+#i define_unique_constraint_distinct; ddl; pg
+	#- def define_unique_constraint_distinct(self, constraint, **kw): # inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: define_unique_constraint_distinct')
+
+#i get_column_specification; ddl; ms; my; pg
+	def get_column_specification(self, column, **kwargs):
+		"""Builds column DDL."""
+
+		# A column definition consists of a <column name>...
+		colspec = self.preparer.format_column(column)
+
+		# and in most cases a <data type> or <domain name>...
+		colspec += " " + self.dialect.type_compiler_instance.process(
+				column.type, type_expression=column
+			)
+
+		# --------
+		# The clauses below are mutually exclusive, but isn't reflected by code logic...
+		# 	[ <default clause> | <identity column specification> | <identity column sequence specification> | <generation clause> ]
+		# There appears to be a risk we'll end up with colspecs containing conflicting causes.
+		# TODO: verify colspecs doesn't contain conflicting causes
+
+		# <default clause>
+		default = self.get_column_default_string(column)
+		if default is not None:
+			colspec += " DEFAULT " + default
+		# The value of default should match a <default option>, i.e.
+		#	<default option> ::= <literal> | <datetime value function> | USER | CURRENT_USER | CURRENT_ROLE | SESSION_USER | SYSTEM_USER | CURRENT_CATALOG | CURRENT_SCHEMA | CURRENT_PATH | NULL
+
+		# <generation clause> ?
+		if column.computed is not None:
+			colspec += " " + self.process(column.computed) # See visit_computed_column()
+			#- "GENERATED ALWAYS AS (%s)" % self.sql_compiler.process(generated.sqltext, include_table=False, literal_binds=True)
+
+		# <identity column specification>
+		if (
+			column.identity is not None
+			and self.dialect.supports_identity_columns
+		):
+			colspec += " " + self.process(column.identity) # See compiler.DDLCompiler.visit_identity_column()
+		# --------
+
+		# <update clause> - (seems to be missing in the docs https://hsqldb.org/doc/2.0/guide/databaseobjects-chapt.html)
+		# Maybe it's the <on update clause>?
+		# "This feature is not part of the SQL Standard and is similar to MySQL's ON UPDATE clause."
+		# TODO: implement <update clause>
+
+		# <column constraint definition> ?
+		# Constraint definitions are missing here.
+		# HSQLDB automatically turns column constraint definitions into table constraint definitions.
+		# Perhaps SQLAlchemy defines constraints on tables only?
+
+		# Except for the NOT NULL constraint...
+		if not column.nullable and (
+			not column.identity or not self.dialect.supports_identity_columns
+		):
+			# In other words, if not nullable and not an identity column then append...
+			colspec += " NOT NULL"
+
+		# <collate clause>
+		# TODO: implement collate clause?
+
+		return colspec
+	# See 'column definition' in...
+	# 	http://www.hsqldb.org/doc/2.0/guide/databaseobjects-chapt.html#dbc_table_creation
+	#
+	# Except for added comments, the function above is practically identical to the default implementation.
+	# TODO: inherit the get_column_specification method from compiler.DDLCompiler
+
+
+#i get_identity_options; ddl; ora
+	def get_identity_options(self, identity_options):
+		assert identity_options.cache is None, "HSQLDB doesn't support identity_options.cache"
+		return compiler.DDLCompiler.get_identity_options(self, identity_options)
+	# HSQLDB appears to support most of the identity options found in
+	# compiler.DDLCompiler.get_identity_options method, except for "CACHED".
+	#
+	# See "<common sequence generator options>" under the "CREATE SEQUENCE" section
+	# 	https://hsqldb.org/doc/2.0/guide/databaseobjects-chapt.html
+	#
+	# HSQLDB also has a sequence generator option named 'AS', which doesn't appear
+	# to be supported by compiler.DDLCompiler.get_identity_options.
+	# TODO:3: implement support for identity_option 'AS'
+
+#i post_create_table; ddl; my; ora; pg
+	def post_create_table(self, table):
+		# Is this the place to implement the <collate clause>?
+		return " -- post_create_table "
+	# TODO: implement post_create_table or inherit from compiler.DDLCompiler
+
+#i visit_check_constraint; ddl; pg
+	#- def visit_check_constraint(self, constraint, **kw): #- inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: visit_check_constraint')
+
+#i visit_computed_column; ddl; ms; ora; pg
+	def visit_computed_column(self, generated, **kw):
+		if generated.persisted is False:
+			raise exc.CompileError(
+				"Virtual computed columns are unsupported."
+				"Please set the persisted flag to None or True."
+			)
+		return "GENERATED ALWAYS AS (%s)" % self.sql_compiler.process(
+			generated.sqltext, include_table=False, literal_binds=True
+		)
+
+#i visit_create_index; ddl; ms; my; ora; pg
+	def visit_create_index(self, create, include_schema=False, include_table_schema=True, **kw):
+		index = create.element
+		self._verify_index_table(index)
+		preparer = self.preparer
+		if index.name is None:
+			raise exc.CompileError("CREATE INDEX requires an index name.")
+		text = "CREATE INDEX "
+		if create.if_not_exists:
+			text += "IF NOT EXISTS "
+		text += "%s ON %s (%s)" % (
+			self._prepared_index_name(index, include_schema=include_schema),
+			preparer.format_table(index.table, use_schema=include_table_schema),
+			", ".join(
+				self.sql_compiler.process(
+					expr, include_table=False, literal_binds=True
+				)
+				for expr in index.expressions
+			),
+		)
+		return text
+		# Support for the ASC|DESC option not implemented because it has no effect.
+
+#i visit_create_sequence; ddl; ms; pg
+	def visit_create_sequence(self, create, **kw):
+		prefix = None
+		if create.element.data_type is not None:
+			data_type = create.element.data_type
+			prefix = " AS %s" % self.type_compiler.process(data_type)
+		return super().visit_create_sequence(create, prefix=prefix, **kw)
+
+#i visit_drop_column_comment; ddl; ms
+	def visit_drop_column_comment(self, drop, **kw):
+		return "COMMENT ON COLUMN %s IS ''" % self.preparer.format_column(
+			drop.element, use_table=True
+		)
+	# COMMENT ON statement only accepts a character string literal, not a NULL,
+	# even though an unset comment is initially NULL.
+	# TODO: consider updating INFORMATION_SCHEMA.SYSTEM_COLUMNS.REMARKS directly.
+
+#i visit_drop_constraint_comment; ddl; pg
+	def visit_drop_constraint_comment(self, drop, **kw):
+		raise exc.CompileError("Constraint comments are not supported.")
+	# HSQLDB doesn't support comments on constraints.
+
+#i visit_drop_constraint; ddl; my
+	def visit_drop_constraint(self, drop, **kw):
+		constraint = drop.element
+		if constraint.name is not None:
+			formatted_name = self.preparer.format_constraint(constraint)
+		else:
+			formatted_name = None
+
+		if formatted_name is None:
+			raise exc.CompileError(
+				"Can't emit DROP CONSTRAINT for constraint %r; "
+				"it has no name" % drop.element
+			)
+		return "ALTER TABLE %s DROP CONSTRAINT %s %s %s" % (
+			self.preparer.format_table(drop.element.table),
+			formatted_name,
+			"CASCADE" if drop.cascade else "RESTRICT",
+		)
+	# TODO: verify each kind of constraint is dropped, pk, fk, check, etc.
+
+#i visit_drop_index; ddl; ms; my; pg
+	def visit_drop_index(self, drop, **kw):
+		index = drop.element
+		if index.name is None:
+			raise exc.CompileError(
+				"DROP INDEX requires that the index have a name"
+			)
+		text = "\nDROP INDEX "
+		text += self._prepared_index_name(index, include_schema=True)
+		#- verified include_schema=True is correct for HSQLDB
+		if drop.if_exists:
+			text += " IF EXISTS"
+		return text
+	# "Will not work if the index backs a UNIQUE of FOREIGN KEY constraint".
+	# TODO:3: would it be helpful to raise an exception if the index backs a unique or FK constraint?
+
+#i visit_drop_table_comment; ddl; ms; my; ora
+	def visit_drop_table_comment(self, drop, **kw):
+		return "COMMENT ON TABLE %s IS ''" % self.preparer.format_table(
+			drop.element
+		)
+	# COMMENT ON statement only accepts a character string literal, not a NULL,
+	# even though an unset comment is initially NULL.
+	# TODO: consider updating INFORMATION_SCHEMA.SYSTEM_TABLES.REMARKS directly.
+
+#i visit_drop_table; ddl # just ddl I'm guessing
+	def visit_drop_table(self, drop, **kw):
+		text = "\nDROP TABLE "
+		text += self.preparer.format_table(drop.element)
+		if drop.if_exists:
+			text += "IF EXISTS "
+		text += "CASCADE" if drop.cascade else "RESTRICT",
+		text += ";"
+		return text
+
+#i visit_foreign_key_constraint; ddl; pg
+	#- def visit_foreign_key_constraint(self, constraint, **kw): #- inherit from compiler.DDLCompiler
+	#-	raise NotImplementedError('xxx: visit_foreign_key_constraint')
+
+#i visit_identity_column; ddl; ms; ora
+	#- def visit_identity_column(self, identity, **kw):  #- inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: visit_identity_column')
+
+#i visit_primary_key_constraint; ddl; ms; my
+	#- def visit_primary_key_constraint(self, constraint, **kw):  #- inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: visit_primary_key_constraint')
+
+#i visit_set_column_comment; ddl; ms; my
+	#- def visit_set_column_comment(self, create, **kw):  #- inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: visit_set_column_comment')
+
+#i visit_set_constraint_comment; ddl; pg
+	#- def visit_set_constraint_comment(self, create, **kw):
+	#- 	raise NotImplementedError('xxx: visit_set_constraint_comment')
+	#- HSQLDB doesn't support comments on constraints.
+
+#i visit_set_table_comment; ddl; ms; my
+	#- def visit_set_table_comment(self, create, **kw):  #- inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: visit_set_table_comment')
+
+#i visit_unique_constraint; ddl; ms
+	#- def visit_unique_constraint(self, constraint, **kw):  #- inherit from compiler.DDLCompiler
+	#- 	raise NotImplementedError('xxx: visit_unique_constraint')
+
 
 
 
@@ -1162,7 +1427,8 @@ class HyperSqlDialect(default.DefaultDialect):
 						'options': {
 							'onupdate': onupdate,
 							'ondelete': ondelete,
-							'deferrable': deferrable
+							'deferrable': deferrable # Supported?
+							# TODO: Constraint deferrability is currently unsupported by HSQLDB. Exclude 'deferrable' from this line dictionary?
 						}
 					}
 					reflectedForeignKeys.append(fk)
