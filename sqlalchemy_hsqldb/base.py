@@ -210,21 +210,40 @@ ischema_names = {
 #- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 class HyperSqlCompiler(compiler.SQLCompiler):
 
+
+# compiler.SQLCompiler methods that are commonly inherited by dialects have been stubbed below.
+
 #i __init__; sql; ms; ora
 	def __init__(self, *args, **kwargs):
 		#- self.tablealiases = {} # mssql dialect's tablealiases dict.
 		super().__init__(*args, **kwargs)
 	# TODO: remove this method if unused
 
+	#- Note this __init__ method has far fewer parameters than the base class.
+	#- Any additional positional parameters are fed into *args,
+	#- and any keyword argument parameters are fed into **kwargs, I guess.
+	#- As we're not referencing them within the method, we don't need to name them. Yes?
+	# TODO: review all method signatures to see whether params can be eliminated.
+
+
 #i _assert_pg_ts_ext; pg
 #i _check_can_use_fetch_limit; ms
 #i _get_limit_or_fetch; ms; ora
 #i _get_nonansi_join_whereclause; ora
+
+#i _literal_execute_expanding_parameter_literal_binds(self, parameter, values, bind_expression_template=None):
+	def _literal_execute_expanding_parameter(self, name, parameter, values):
+		raise NotImplementedError('xxx: _literal_execute_expanding_parameter')
+
 #i _mariadb_regexp_flags; my
 #i _on_conflict_target; pg
 #i _regexp_match; my; pg
 #i _render_json_extract_from_binary; ms; my
+
 #i _row_limit_clause; sql; ms; ora
+	def _row_limit_clause(self, cs, **kwargs):
+		raise NotImplementedError('xxx: _row_limit_clause')
+
 #i _schema_aliased_table; ms
 #i _use_top; ms
 #i _with_legacy_schema_aliasing; ms
@@ -240,6 +259,7 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	#- HSQLDB supports 'FROM DUAL' when in Oracle compatibility mode, otherwise it does not and raises an error if used. 
 	# TODO: Consider a separate HyperSqlCompiler class for each of HSQLDB's compatibility modes.
 
+#i delete_extra_from_clause; sql; ms; my; pg
 	def delete_extra_from_clause(self, delete_stmt, from_table, extra_froms, from_hints, **kw):
 		"""Render the DELETE .. FROM clause. Not currently supported by HSQLDB. """
 		raise NotImplementedError(
@@ -260,26 +280,50 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 # WIP: HyperSqlCompiler -->
 
-	def fetch_clause(
-				self,
-				select,
-				fetch_clause=None,
-				require_offset=False,
-				use_literal_execute_for_simple_int=False,
-				**kw
-	):
-		raise NotImplementedError('fetch_clause')
-
 #i fetch_clause; sql; pg
+	def fetch_clause(self, select, fetch_clause=None, require_offset=False, use_literal_execute_for_simple_int=False, **kw, ):
+		raise NotImplementedError('xxx: fetch_clause')
+
 #i for_update_clause; sql; ms; my; ora; pg
+	def for_update_clause(self, select, **kw):
+		raise NotImplementedError('xxx: for_update_clause')
+
 #i format_from_hint_text; sql; pg
+	def format_from_hint_text(self, sqltext, table, hint, iscrud):
+		raise NotImplementedError('xxx: format_from_hint_text')
+
 #i function_argspec; sql; ora
+	def function_argspec(self, func, **kwargs):
+		raise NotImplementedError('xxx: function_argspec')
+
 #i get_crud_hint_text; sql; ms
+	def get_crud_hint_text(self, table, text):
+		raise NotImplementedError('xxx: get_crud_hint_text')
+
 #i get_cte_preamble; sql; ms; ora
+	def get_cte_preamble(self, recursive):
+		raise NotImplementedError('xxx: get_cte_preamble')
+
 #i get_from_hint_text; sql; ms; my
+	def get_from_hint_text(self, table, text):
+		raise NotImplementedError('xxx: get_from_hint_text')
+
 #i get_render_as_alias_suffix; sql; ora
+	def get_render_as_alias_suffix(self, alias_name_text):
+		raise NotImplementedError('xxx: get_render_as_alias_suffix')
+
 #i get_select_hint_text; sql; ora
+	def get_select_hint_text(self, byfroms):
+		raise NotImplementedError('xxx: get_select_hint_text')
+
 #i get_select_precolumns; sql; ms; my; pg
+	def get_select_precolumns(self, select, **kw):
+		raise NotImplementedError('xxx: get_select_precolumns')
+
+#i get_statement_hint_text(self, hint_texts):
+	def get(lastrowid, parameters):
+		raise NotImplementedError('xxx: get')
+
 #i label_select_column; ms
 
 #i limit_clause; sql; ms; my; ora; pg
@@ -295,6 +339,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		return text
 
 #i order_by_clause; sql; ms
+	def order_by_clause(self, select, **kw):
+		raise NotImplementedError('xxx: order_by_clause')
 
 #i render_bind_cast; sql; pg
 	def render_bind_cast(self, type_, dbapi_type, sqltext):
@@ -306,41 +352,113 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	# TODO: investigate if render_bind_cast is appropriate for HSQLDB, or remove this method if unused.
 
 #i render_literal_value; sql; my; pg
+	def render_literal_value(self, value, type_):
+		raise NotImplementedError('xxx: render_literal_value')
+
 #i returning_clause; sql; ms; ora
+	def returning_clause(self, stmt, returning_cols, *, populate_result_map, **kw, ) -> str:
+		raise NotImplementedError('xxx: returning_clause')
+
 #i translate_select_structure; ms; ora
+
 #i update_from_clause; sql; ms; my; pg
+	def update_from_clause(self, update_stmt, from_table, extra_froms, from_hints, **kw):
+		raise NotImplementedError('xxx: update_from_clause')
+
 #i update_limit_clause; sql; my
+	def update_limit_clause(self, update_stmt):
+		raise NotImplementedError('xxx: update_limit_clause')
+
 #i update_tables_clause; sql; my
+	def update_tables_clause(self, update_stmt, from_table, extra_froms, **kw):
+		raise NotImplementedError('xxx: update_tables_clause')
+
 #i visit_aggregate_order_by; pg
 #i visit_aggregate_strings_func; ms; my; ora; pg
+
 #i visit_alias; sql; ms
+	def visit_alias(self, alias, asfrom=False, ashint=False, iscrud=False, fromhints=None, subquery=False, lateral=False, enclosing_alias=None, from_linter=None, **kwargs, ):
+		raise NotImplementedError('xxx: visit_alias')
+
 #i visit_array; pg
+
 #i visit_binary; sql; ms
+	def visit_binary(self, binary, override_operator=None, eager_grouping=False, from_linter=None, lateral_from_linter=None, **kw, ):
+		raise NotImplementedError('xxx: visit_binary')
+
 #i visit_bitwise_xor_op_binary; pg
+
 #i visit_cast; sql; my
+	def visit_cast(self, cast, **kwargs):
+		raise NotImplementedError('xxx: visit_cast')
+
 #i visit_char_length_func; ms; ora
+
 #i visit_column; sql; ms
+	def visit_column(self, column, add_to_result_map=None, include_table=True, result_map_targets=(), ambiguous_table_name_map=None, **kwargs, ) -> str:
+		raise NotImplementedError('xxx: visit_column')
+
 #i visit_concat_op_binary; ms; my
 #i visit_concat_op_expression_clauselist; ms; my
 #i visit_current_date_func; ms
+
 #i visit_empty_set_expr; sql; ms; my; ora; pg
+	def visit_empty_set_expr(self, element_types, **kw):
+		raise NotImplementedError('xxx: visit_empty_set_expr')
+
 #i visit_extract; sql; ms
+	def visit_extract(self, extract, **kwargs):
+		raise NotImplementedError('xxx: visit_extract')
+
 #i visit_false; sql; ms; my; ora
+	def visit_false(self, expr, **kw):
+		raise NotImplementedError('xxx: visit_false')
+
 #i visit_function; sql; ora
+	def visit_function(self, func, add_to_result_map=None, **kwargs, ) -> str:
+		raise NotImplementedError('xxx: visit_function')
+
 #i visit_getitem_binary; pg
+
 #i visit_ilike_case_insensitive_operand; sql; pg
+	def visit_ilike_case_insensitive_operand(self, element, **kw):
+		raise NotImplementedError('xxx: visit_ilike_case_insensitive_operand')
+
 #i visit_ilike_op_binary; sql; pg
+	def visit_ilike_op_binary(self, binary, operator, **kw):
+		raise NotImplementedError('xxx: visit_ilike_op_binary')
+
 #i visit_is_distinct_from_binary; ms; my; ora
 #i visit_is_not_distinct_from_binary; ms; my; ora
+
 #i visit_join; sql; my; ora
+	def visit_join(self, join, asfrom=False, from_linter=None, **kwargs):
+		raise NotImplementedError('xxx: visit_join')
+
 #i visit_json_getitem_op_binary; ms; my; pg
 #i visit_json_path_getitem_op_binary; ms; my; pg
+
+#i visit_label_reference(self, element, within_columns_clause=False, **kwargs):
+	def visit_label(self, label, add_to_result_map=None, within_label_clause=False, within_columns_clause=False, render_label_as_label=None, result_map_targets=(), **kw, ):
+		raise NotImplementedError('xxx: visit_label')
+
 #i visit_length_func; ms
 #i visit_match_op_binary; ms; my; ora; pg
+
 #i visit_mod_binary; sql; ora
+	def visit_mod_binary(self, binary, operator, **kw):
+		raise NotImplementedError('xxx: visit_mod_binary')
+
 #i visit_mysql_match; my
+
 #i visit_not_ilike_op_binary; sql; pg
+	def visit_not_ilike_op_binary(self, binary, operator, **kw):
+		raise NotImplementedError('xxx: visit_not_ilike_op_binary')
+
 #i visit_not_regexp_match_op_binary; sql; my; ora; pg
+	def visit_not_regexp_match_op_binary(self, binary, operator, **kw):
+		raise NotImplementedError('xxx: visit_not_regexp_match_op_binary')
+
 #i visit_now_func; ms; ora
 #i visit_on_conflict_do_nothing; pg
 #i visit_on_conflict_do_update; pg
@@ -349,42 +467,64 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i visit_phraseto_tsquery_func; pg
 #i visit_plainto_tsquery_func; pg
 #i visit_random_func; my
+
 #i visit_regexp_match_op_binary; sql; my; ora; pg
+	def visit_regexp_match_op_binary(self, binary, operator, **kw):
+		raise NotImplementedError('xxx: visit_regexp_match_op_binary')
+
 #i visit_regexp_replace_op_binary; sql; my; ora; pg
+	def visit_regexp_replace_op_binary(self, binary, operator, **kw):
+		raise NotImplementedError('xxx: visit_regexp_replace_op_binary')
+
 #i visit_rollback_to_savepoint; sql; ms
+	def visit_rollback_to_savepoint(self, savepoint_stmt, **kw):
+		raise NotImplementedError('xxx: visit_rollback_to_savepoint')
+
 #i visit_rollup_func; my
+
 #i visit_savepoint; sql; ms
+	def visit_savepoint(self, savepoint_stmt, **kw):
+		raise NotImplementedError('xxx: visit_savepoint')
+
+#i visit_select_statement_grouping(self, grouping, **kwargs):
+	def visit_select(self, select_stmt, asfrom=False, insert_into=False, fromhints=None, compound_index=None, select_wraps_for=None, lateral=False, from_linter=None, **kwargs, ):
+		raise NotImplementedError('xxx: visit_select')
+
 #i visit_sequence; sql; ms; my; ora; pg
+	def visit_sequence(self, sequence, **kw):
+		raise NotImplementedError('xxx: visit_sequence')
+
 #i visit_slice; pg
 #i visit_substring_func; pg
 #i visit_sysdate_func; my
+
 #i visit_table_valued_column; sql; ora
+	def visit_table_valued_column(self, element, **kw):
+		raise NotImplementedError('xxx: visit_table_valued_column')
+
 #i visit_table; sql; ms
+	def visit_table(self, table, asfrom=False, iscrud=False, ashint=False, fromhints=None, use_schema=True, from_linter=None, ambiguous_table_name_map=None, **kwargs, ):
+		raise NotImplementedError('xxx: visit_table')
+
 #i visit_to_tsquery_func; pg
 #i visit_to_tsvector_func; pg
+
 #i visit_true; sql; ms; my; ora
+	def visit_true(self, expr, **kw):
+		raise NotImplementedError('xxx: visit_true')
+
 #i visit_try_cast; ms
 #i visit_ts_headline_func; pg
+
 #i visit_typeclause; sql; my
+	def visit_typeclause(self, typeclause, **kw):
+		raise NotImplementedError('xxx: visit_typeclause')
+
 #i visit_websearch_to_tsquery_func; pg
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-# WIP: HyperSqlDDLCompiler -->
-# TODO: Implement HyperSqlDDLCompiler. About 100 lines, 7 methods.
 class HyperSqlDDLCompiler(compiler.DDLCompiler):
-	# pass
 #- DDLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 
 #i define_constraint_cascades; ddl; ora
