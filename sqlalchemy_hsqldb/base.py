@@ -8,6 +8,7 @@
 # TODO: Ensure all methods raise an error when expected row(s) are missing.
 # TODO: prefer org.hsqldb.jdbc.JDBCConnection methods over executing SQL strings. Rewrite functions as necessary.
 # TODO: prefer JayDeBeApi Connection methods over JDBCConnection methods
+# TODO: Ensure dialect methods aren't prematurely closing connections.
 
 import pdb
 
@@ -190,7 +191,7 @@ colspecs = {
 # INFORMATION_SCHEMA.COLUMNS.DATA_TYPE
 #	e.g. CHARACTER VARYING
 #
-# The Access dialect apparently uses INFORMATION_SCHEMA.COLUMNS.DATA_TYPE
+# The Access dialect uses INFORMATION_SCHEMA.COLUMNS.DATA_TYPE
 #
 ischema_names = {
 
@@ -202,6 +203,7 @@ ischema_names = {
 	# TODO: try mapping BOOLEAN to sqltypes.BOOLEAN. Test and verify it works.
 	# "BOOLEAN": HyperSqlBoolean,
 
+	"INTEGER": sqltypes.INTEGER,
 	"NUMERIC": sqltypes.NUMERIC,
 }
 
@@ -209,9 +211,7 @@ ischema_names = {
 # TODO: Implement HyperSqlCompiler. About 400 lines. The derived subclass is also long.
 #- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 class HyperSqlCompiler(compiler.SQLCompiler):
-
-
-# compiler.SQLCompiler methods that are commonly inherited by dialects have been stubbed below.
+#- compiler.SQLCompiler methods that are commonly inherited by dialects have been stubbed below.
 
 #i __init__; sql; ms; ora
 	def __init__(self, *args, **kwargs):
@@ -221,7 +221,7 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 	#- Note this __init__ method has far fewer parameters than the base class.
 	#- Any additional positional parameters are fed into *args,
-	#- and any keyword argument parameters are fed into **kwargs, I guess.
+	#- any keyword argument parameters are fed into **kwargs, I guess.
 	#- As we're not referencing them within the method, we don't need to name them. Yes?
 	# TODO: review all method signatures to see whether params can be eliminated.
 
@@ -234,6 +234,7 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i _literal_execute_expanding_parameter_literal_binds(self, parameter, values, bind_expression_template=None):
 	def _literal_execute_expanding_parameter(self, name, parameter, values):
 		raise NotImplementedError('xxx: _literal_execute_expanding_parameter')
+	# TODO: Unsure why this function has been stubbed. remove it?
 
 #i _mariadb_regexp_flags; my
 #i _on_conflict_target; pg
@@ -243,6 +244,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i _row_limit_clause; sql; ms; ora
 	def _row_limit_clause(self, cs, **kwargs):
 		raise NotImplementedError('xxx: _row_limit_clause')
+	# The base impl calls fetch clause or limit clause.
+	# TODO: Unsure why this function has been stubbed. remove it?
 
 #i _schema_aliased_table; ms
 #i _use_top; ms
@@ -317,9 +320,10 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		raise NotImplementedError('xxx: get_select_hint_text')
 
 #i get_select_precolumns; sql; ms; my; pg
-	def get_select_precolumns(self, select, **kw):
-		raise NotImplementedError('xxx: get_select_precolumns')
+	#- def get_select_precolumns(self, select, **kw): # Inherit from compiler.SQLCompiler
+	#- 	raise NotImplementedError('xxx: get_select_precolumns')
 
+# WIP: get_select_precolumns ->
 #i get_statement_hint_text(self, hint_texts):
 	def get(lastrowid, parameters):
 		raise NotImplementedError('xxx: get')
@@ -382,21 +386,21 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i visit_array; pg
 
-#i visit_binary; sql; ms
-	def visit_binary(self, binary, override_operator=None, eager_grouping=False, from_linter=None, lateral_from_linter=None, **kw, ):
-		raise NotImplementedError('xxx: visit_binary')
+#i visit_binary; sql; ms # inheriit
+	#- def visit_binary(self, binary, override_operator=None, eager_grouping=False, from_linter=None, lateral_from_linter=None, **kw, ):
+	#- 	raise NotImplementedError('xxx: visit_binary')
 
 #i visit_bitwise_xor_op_binary; pg
 
-#i visit_cast; sql; my
-	def visit_cast(self, cast, **kwargs):
-		raise NotImplementedError('xxx: visit_cast')
+#i visit_cast; sql; my # inherit
+	#- def visit_cast(self, cast, **kwargs):
+	#- 	raise NotImplementedError('xxx: visit_cast')
 
 #i visit_char_length_func; ms; ora
 
-#i visit_column; sql; ms
-	def visit_column(self, column, add_to_result_map=None, include_table=True, result_map_targets=(), ambiguous_table_name_map=None, **kwargs, ) -> str:
-		raise NotImplementedError('xxx: visit_column')
+#i visit_column; sql; ms # Inherit
+	#- def visit_column(self, column, add_to_result_map=None, include_table=True, result_map_targets=(), ambiguous_table_name_map=None, **kwargs, ) -> str:
+	#- 	raise NotImplementedError('xxx: visit_column')
 
 #i visit_concat_op_binary; ms; my
 #i visit_concat_op_expression_clauselist; ms; my
@@ -437,10 +441,6 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i visit_json_getitem_op_binary; ms; my; pg
 #i visit_json_path_getitem_op_binary; ms; my; pg
-
-#i visit_label_reference(self, element, within_columns_clause=False, **kwargs):
-	def visit_label(self, label, add_to_result_map=None, within_label_clause=False, within_columns_clause=False, render_label_as_label=None, result_map_targets=(), **kw, ):
-		raise NotImplementedError('xxx: visit_label')
 
 #i visit_length_func; ms
 #i visit_match_op_binary; ms; my; ora; pg
@@ -486,10 +486,6 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	def visit_savepoint(self, savepoint_stmt, **kw):
 		raise NotImplementedError('xxx: visit_savepoint')
 
-#i visit_select_statement_grouping(self, grouping, **kwargs):
-	def visit_select(self, select_stmt, asfrom=False, insert_into=False, fromhints=None, compound_index=None, select_wraps_for=None, lateral=False, from_linter=None, **kwargs, ):
-		raise NotImplementedError('xxx: visit_select')
-
 #i visit_sequence; sql; ms; my; ora; pg
 	def visit_sequence(self, sequence, **kw):
 		raise NotImplementedError('xxx: visit_sequence')
@@ -502,9 +498,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	def visit_table_valued_column(self, element, **kw):
 		raise NotImplementedError('xxx: visit_table_valued_column')
 
-#i visit_table; sql; ms
-	def visit_table(self, table, asfrom=False, iscrud=False, ashint=False, fromhints=None, use_schema=True, from_linter=None, ambiguous_table_name_map=None, **kwargs, ):
-		raise NotImplementedError('xxx: visit_table')
+#i visit_table; sql; ms # inherit
+	#- def visit_table(self, table, asfrom=False, iscrud=False, ashint=False, fromhints=None, use_schema=True, from_linter=None, ambiguous_table_name_map=None, **kwargs, ):
+	#- 	raise NotImplementedError('xxx: visit_table')
 
 #i visit_to_tsquery_func; pg
 #i visit_to_tsvector_func; pg
@@ -516,9 +512,17 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i visit_try_cast; ms
 #i visit_ts_headline_func; pg
 
-#i visit_typeclause; sql; my
-	def visit_typeclause(self, typeclause, **kw):
-		raise NotImplementedError('xxx: visit_typeclause')
+#i visit_typeclause; sql; my # inherit
+	#- def visit_typeclause(self, typeclause, **kw):
+	#- 	raise NotImplementedError('xxx: visit_typeclause')
+	#-
+	#- MySQL dialect appears to override this function in order to
+	#- provide specific control or enhancements for type conversions.
+	#- It appears to map sqltypes, returning strings for dialect types.
+	#-
+	#- Isn't this provided elsewhere by other mappings? Not quite.
+	#- 		ischema_names maps strings to sqltypes.
+	#- 		colspecs map sqltypes to dialect types.
 
 #i visit_websearch_to_tsquery_func; pg
 
@@ -535,13 +539,13 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 	def define_constraint_deferrability(self, constraint):
 		if constraint.initially is not None:
 			raise exc.CompileError("Constraint deferrability is not currently supported")
-		return super().define_constraint_deferrability(self, constraint)
+		return super().define_constraint_deferrability(constraint)
 	# "The deferrable characteristic is an optional element of CONSTRAINT definition, not yet supported by HyperSQL."
 
 #i define_constraint_match; ddl; my
 	def define_constraint_match(self, constraint):
 		assert constraint.match in ['FULL', 'PARTIAL', 'SIMPLE']
-		return compiler.DDLCompiler.define_constraint_match(self, constraint)
+		return compiler.DDLCompiler.define_constraint_match(constraint)
 	# MATCH is a keyword for HSQLDB, used with FK constraints.
 	# See: https://hsqldb.org/doc/2.0/guide/databaseobjects-chapt.html
 	# TODO: verify inherited define_constraint_match method works as expected for HSQLDB. If so, delete this override.
@@ -619,7 +623,7 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 #i get_identity_options; ddl; ora
 	def get_identity_options(self, identity_options):
 		assert identity_options.cache is None, "HSQLDB doesn't support identity_options.cache"
-		return compiler.DDLCompiler.get_identity_options(self, identity_options)
+		return compiler.DDLCompiler.get_identity_options(identity_options)
 	# HSQLDB appears to support most of the identity options found in
 	# compiler.DDLCompiler.get_identity_options method, except for "CACHED".
 	#
@@ -865,23 +869,115 @@ Identifier length must be between 1 and 128 characters.
 # WIP: HyperSqlIdentifierPreparer -->
 # TODO: Implement HyperSqlExecutionContext. About 55-165 lines, 2-8 methods.
 class HyperSqlExecutionContext(default.DefaultExecutionContext):
-	pass
+	def __init__(self):
+		print('#3' * 10, 'inside HyperSqlExecutionContext.__init__ method')
+		assert False, 'Does a HyperSqlExecutionContext object get instantiated?'
+	# TODO: remove __init__ method if this class is never instantiated.
 
-"""
-https://docs.sqlalchemy.org/en/14/core/internals.html
-default.DefaultExecutionContext derives from an ExecutionContext.
-What is an execution context?
-interfaces.py, line 2907, describes it as...
-	"A messenger object for a Dialect that corresponds to a single execution."
+	"""
+	https://docs.sqlalchemy.org/en/14/core/internals.html
+	default.DefaultExecutionContext derives from an ExecutionContext.
+	What is an execution context?
+	interfaces.py, line 2907, describes it as...
+		"A messenger object for a Dialect that corresponds to a single execution."
+		
+	Dialect		line count
+	-------		----------
+	ms			150
+	access		4
+	mysql		20
+	oracle		27
+	pg			54
+	"""
 
-Dialect		line count
--------		----------
-ms			150
-access		4
-mysql		20
-oracle		27
-pg			54
-"""
+#i _opt_encode; ms
+#i create_server_side_cursor; dec; my
+	def create_server_side_cursor(self):
+		print('### create_server_side_cursor') #-
+		if self.dialect.supports_server_side_cursors:
+			return self._dbapi_connection.cursor() # TODO: are any params required?
+		else:
+			raise NotImplementedError()
+
+
+	# # def create_server_side_cursor_my(self):
+	# # 	if self.dialect.supports_server_side_cursors:
+	# # 		return self._dbapi_connection.cursor(self.dialect._sscursor)
+	# # 	else:
+	# # 		raise NotImplementedError()
+
+	# # def create_server_side_cursor_maria(self):
+	# # 	return self._dbapi_connection.cursor(buffered=False)
+
+	# # def create_server_side_cursor_pg8000(self):
+	# # 	ident = "c_%s_%s" % (hex(id(self))[2:], hex(_server_side_id())[2:])
+	# # 	return ServerSideCursor(self._dbapi_connection.cursor(), ident)
+
+	# # def create_server_side_cursor(self):
+	# # 	# use server-side cursors:
+	# # 	# psycopg
+	# # 	# https://www.psycopg.org/psycopg3/docs/advanced/cursors.html#server-side-cursors
+	# # 	# psycopg2
+	# # 	# https://www.psycopg.org/docs/usage.html#server-side-cursors
+	# # 	ident = "c_%s_%s" % (hex(id(self))[2:], hex(_server_side_id())[2:])
+	# # 	return self._dbapi_connection.cursor(ident)
+
+	# # def create_server_side_cursor(self):
+	# # 	raise NotImplementedError()
+
+
+
+#i fire_sequence; ec; ms; my; ora; pg
+	def fire_sequence(self, seq, type_):
+		"""given a :class:`.Sequence`, invoke it and return the next int value"""
+		raise NotImplementedError()
+
+	# # def fire_sequence_my(self, seq, type_):
+	# # 	return self._execute_scalar(
+	# # 		(
+	# # 			"select nextval(%s)"
+	# # 			% self.identifier_preparer.format_sequence(seq)
+	# # 		),
+	# # 		type_,
+	# # 	)
+
+#i get_insert_default; dec; ms; pg
+	def get_insert_default(self, column):
+		print('### get_insert_default')
+		raise NotImplementedError()
+		return super().get_insert_default(column)
+
+#i get_lastrowid; dec; ms
+	def get_lastrowid(self):
+		print('### get_lastrowid')
+		raise NotImplementedError()
+		return super().get_lastrowid()	
+
+#i handle_dbapi_exception; ec; dec; ms
+	def handle_dbapi_exception(self, e):
+		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
+		print('### get_lastrowid')
+		return super().handle_dbapi_exception(e)
+
+#i post_exec; ec; dec; ms
+	def post_exec(self):
+		print('### post_exec')
+		super().post_exec()
+
+#i pre_exec; ec; dec; ms; ora
+	def pre_exec(self):
+		print('### pre_exec')
+		super().pre_exec()
+
+	# # def pre_exec_pg8000(self):
+	# # 	if not self.compiled:
+	# # 		return
+
+#i rowcount; dec; ms
+	def rowcount(self):
+		print('### pre_exec')
+		return super().rowcount()
+
 
 class HyperSqlDialect(default.DefaultDialect):
 	"""HyperSqlDialect implementation of Dialect"""
@@ -1438,7 +1534,7 @@ class HyperSqlDialect(default.DefaultDialect):
 				col_name = row._mapping['COLUMN_NAME'] # str """column name"""
 
 				assert row._mapping['TYPE_NAME'] in ischema_names, "ischema_names is missing a key for datatype %s" % row._mapping['TYPE_NAME']
-				col_type = row._mapping['TYPE_NAME'] # TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
+				col_type = row._mapping['TYPE_NAME'] # A String value, e.g. 'INTEGER'; TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
 
 				col_nullable = bool(row._mapping['NULLABLE']) # bool """boolean flag if the column is NULL or NOT NULL"""
 				col_default = row._mapping['COLUMN_DEF'] # Optional[str] """column default expression as a SQL string"""
@@ -1470,10 +1566,13 @@ class HyperSqlDialect(default.DefaultDialect):
 				if col_character_maximum_length:
 					kwargs['length'] = int(col_character_maximum_length)
 
-				if len(kwargs) > 0:
+				if len(kwargs) > 0 and False:
 					col_type = ischema_names[col_type](**kwargs)
+					# TODO: ischema_names.get(col_type)
+					# Note Oracle doesn't pass kwargs to type constructors, only required params, e.g. col_type = NUMERIC(precision,scale) 
+					# TODO: fix... TypeError: INTEGER() takes no arguments
 				else:
-					col_type = ischema_names[col_type]
+					col_type = ischema_names.get(col_type)()
 
 				#- if issubclass(col_type, sqltypes.Numeric) == True:
 				#- pass
@@ -1485,11 +1584,18 @@ class HyperSqlDialect(default.DefaultDialect):
 					'default': col_default,
 					'autoincrement': col_autoincrement,
 					'comment': col_comment,
-					# 'computed': col_computed,
-					# 'identity': col_identity,
+					# 'computed': col_computed, # TODO: computed/generated column
+					# 'identity': col_identity, # TODO: identity column
 					# 'dialect_options': col_dialect_options
 					})
 		return reflectedColumns
+
+	# The column tables in INFORMATION_SCHEMA do not have a 'computed' field.
+	# Maybe these are referred to as 'generated' columns in HSQLDB?
+	# INFORMATION_SCHEMA.COLUMNS has 'IS_GENERATED' and 'GENERATION_EXPRESSION' columns.
+	# INFORMATION_SCHEMA.SYSTEM_COLUMNS has an 'IS_GENERATEDCOLUMN' column.
+	# TODO: update get_columns to include computed and identity columns.
+
 
 #i  def get_multi_columns(
 	# TODO: for better performance implement get_multi_columns. DefaultDialect's implementation is only adequate for now.
@@ -2005,7 +2111,7 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
 	def do_begin(self, dbapi_connection):
-		print('### do_begin')
+		print('### This message is being displayed by the HyperSqlDialect.do_begin method')
 	# TODO: inherit from default dialect, i.e. just comment out this implementation
 
 #i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
@@ -2298,7 +2404,8 @@ class HyperSqlDialect(default.DefaultDialect):
 	#- So you can use expressions like col1.is_distinct_from(col2) in SQLAlchemy when using the HSQLDB dialect.
 	# TODO: find out where the above property is from - it's not part of the Dialect interface.
 
-	poolclass = pool.NullPool
+	# poolclass = pool.NullPool #- temporarily assigned to NullPool
+	poolclass = pool.QueuePool
 	# QueuePool is the default.
 	# Claude says NullPool or StaticPool is suitable for HSQLDB, but Claude's information might be outdated.
 	# The Access dialect is using NullPool.
