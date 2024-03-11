@@ -1526,68 +1526,67 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE A.TABLE_NAME = '{table_name}'
 			AND A.TABLE_SCHEM = '{schema}'
 			"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			for row in cursorResult.all():
-				# Note row._mapping is using column names as keys and not the aliases defined in the query.
+		cursorResult = connection.exec_driver_sql(query)
+		for row in cursorResult.all():
+			# Note row._mapping is using column names as keys and not the aliases defined in the query.
 
-				col_name = row._mapping['COLUMN_NAME'] # str """column name"""
+			col_name = row._mapping['COLUMN_NAME'] # str """column name"""
 
-				assert row._mapping['TYPE_NAME'] in ischema_names, "ischema_names is missing a key for datatype %s" % row._mapping['TYPE_NAME']
-				col_type = row._mapping['TYPE_NAME'] # A String value, e.g. 'INTEGER'; TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
+			assert row._mapping['TYPE_NAME'] in ischema_names, "ischema_names is missing a key for datatype %s" % row._mapping['TYPE_NAME']
+			col_type = row._mapping['TYPE_NAME'] # A String value, e.g. 'INTEGER'; TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
 
-				col_nullable = bool(row._mapping['NULLABLE']) # bool """boolean flag if the column is NULL or NOT NULL"""
-				col_default = row._mapping['COLUMN_DEF'] # Optional[str] """column default expression as a SQL string"""
-				col_autoincrement = row._mapping['IS_AUTOINCREMENT'] == 'YES' # NotRequired[bool] """database-dependent autoincrement flag.
-				# This flag indicates if the column has a database-side "autoincrement"
-				# flag of some kind.   Within SQLAlchemy, other kinds of columns may
-				# also act as an "autoincrement" column without necessarily having
-				# such a flag on them.
-				# See :paramref:`_schema.Column.autoincrement` for more background on "autoincrement".
-				col_comment = row._mapping['REMARKS'] # NotRequired[Optional[str]] """comment for the column, if present. Only some dialects return this key """
-				col_computed = None # NotRequired[ReflectedComputed] """indicates that this column is computed by the database. Only some dialects return this key.
+			col_nullable = bool(row._mapping['NULLABLE']) # bool """boolean flag if the column is NULL or NOT NULL"""
+			col_default = row._mapping['COLUMN_DEF'] # Optional[str] """column default expression as a SQL string"""
+			col_autoincrement = row._mapping['IS_AUTOINCREMENT'] == 'YES' # NotRequired[bool] """database-dependent autoincrement flag.
+			# This flag indicates if the column has a database-side "autoincrement"
+			# flag of some kind.   Within SQLAlchemy, other kinds of columns may
+			# also act as an "autoincrement" column without necessarily having
+			# such a flag on them.
+			# See :paramref:`_schema.Column.autoincrement` for more background on "autoincrement".
+			col_comment = row._mapping['REMARKS'] # NotRequired[Optional[str]] """comment for the column, if present. Only some dialects return this key """
+			col_computed = None # NotRequired[ReflectedComputed] """indicates that this column is computed by the database. Only some dialects return this key.
 
-				# TODO: The type for identity should be ReflectedIdentity, not a bool.
-				col_identity = row._mapping['IS_IDENTITY'] == 'YES' # NotRequired[ReflectedIdentity] indicates this column is an IDENTITY column. Only some dialects return this key.
+			# TODO: The type for identity should be ReflectedIdentity, not a bool.
+			col_identity = row._mapping['IS_IDENTITY'] == 'YES' # NotRequired[ReflectedIdentity] indicates this column is an IDENTITY column. Only some dialects return this key.
 
-				col_dialect_options = None # NotRequired[Dict[str, Any]] Additional dialect-specific options detected for this reflected object
+			col_dialect_options = None # NotRequired[Dict[str, Any]] Additional dialect-specific options detected for this reflected object
 
-				kwargs = {}
+			kwargs = {}
 
-				col_numeric_precision = row._mapping['NUMERIC_PRECISION']
-				if col_numeric_precision:
-					kwargs["precision"] = int(col_numeric_precision)
+			col_numeric_precision = row._mapping['NUMERIC_PRECISION']
+			if col_numeric_precision:
+				kwargs["precision"] = int(col_numeric_precision)
 
-				col_numeric_scale = row._mapping['NUMERIC_SCALE']
-				if col_numeric_scale:
-					kwargs['scale'] = int(col_numeric_scale)
+			col_numeric_scale = row._mapping['NUMERIC_SCALE']
+			if col_numeric_scale:
+				kwargs['scale'] = int(col_numeric_scale)
 
-				col_character_maximum_length = row._mapping['CHARACTER_MAXIMUM_LENGTH']
-				if col_character_maximum_length:
-					kwargs['length'] = int(col_character_maximum_length)
+			col_character_maximum_length = row._mapping['CHARACTER_MAXIMUM_LENGTH']
+			if col_character_maximum_length:
+				kwargs['length'] = int(col_character_maximum_length)
 
-				if len(kwargs) > 0 and False:
-					col_type = ischema_names[col_type](**kwargs)
-					# TODO: ischema_names.get(col_type)
-					# Note Oracle doesn't pass kwargs to type constructors, only required params, e.g. col_type = NUMERIC(precision,scale) 
-					# TODO: fix... TypeError: INTEGER() takes no arguments
-				else:
-					col_type = ischema_names.get(col_type)()
+			if len(kwargs) > 0 and False:
+				col_type = ischema_names[col_type](**kwargs)
+				# TODO: ischema_names.get(col_type)
+				# Note Oracle doesn't pass kwargs to type constructors, only required params, e.g. col_type = NUMERIC(precision,scale) 
+				# TODO: fix... TypeError: INTEGER() takes no arguments
+			else:
+				col_type = ischema_names.get(col_type)()
 
-				#- if issubclass(col_type, sqltypes.Numeric) == True:
-				#- pass
+			#- if issubclass(col_type, sqltypes.Numeric) == True:
+			#- pass
 
-				reflectedColumns.append({
-					'name': col_name,
-					'type': col_type,
-					'nullable': col_nullable,
-					'default': col_default,
-					'autoincrement': col_autoincrement,
-					'comment': col_comment,
-					# 'computed': col_computed, # TODO: computed/generated column
-					# 'identity': col_identity, # TODO: identity column
-					# 'dialect_options': col_dialect_options
-					})
+			reflectedColumns.append({
+				'name': col_name,
+				'type': col_type,
+				'nullable': col_nullable,
+				'default': col_default,
+				'autoincrement': col_autoincrement,
+				'comment': col_comment,
+				# 'computed': col_computed, # TODO: computed/generated column
+				# 'identity': col_identity, # TODO: identity column
+				# 'dialect_options': col_dialect_options
+				})
 		return reflectedColumns
 
 	# The column tables in INFORMATION_SCHEMA do not have a 'computed' field.
@@ -1639,47 +1638,46 @@ class HyperSqlDialect(default.DefaultDialect):
 			deferrability
 			FROM information_schema.system_crossreference
 			WHERE fktable_schem = '{schema}' AND fktable_name = '{table_name}'"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			for row in cursorResult.all():
-				# Note row._mapping is using column names as keys and not the aliases defined in the query.
-				fk_name = row._mapping['FK_NAME']
-				constrained_columns = row._mapping['FKCOLUMN_NAME']
-				referred_schema = row._mapping['PKTABLE_SCHEM']
-				referrred_table = row._mapping['PKTABLE_NAME']
-				referred_columns = row._mapping['PKCOLUMN_NAME']
-				onupdate = row._mapping['update_rule']
-				ondelete = row._mapping['delete_rule']
-				deferrable = row._mapping['deferrability']
-				# The values of UPDATE_RULE, DELETE_RULE, and DEFERRABILITY are all integers.
-				# Somewhere as yet undiscovered, they'll probably map to FOREIGN KEY options,
-				# such as [ON {DELETE | UPDATE} {CASCADE | SET DEFAULT | SET NULL}]
-				# TODO: resolve FK options to strings if required for ReflectedForeignKeys.options
+		cursorResult = connection.exec_driver_sql(query)
+		for row in cursorResult.all():
+			# Note row._mapping is using column names as keys and not the aliases defined in the query.
+			fk_name = row._mapping['FK_NAME']
+			constrained_columns = row._mapping['FKCOLUMN_NAME']
+			referred_schema = row._mapping['PKTABLE_SCHEM']
+			referrred_table = row._mapping['PKTABLE_NAME']
+			referred_columns = row._mapping['PKCOLUMN_NAME']
+			onupdate = row._mapping['update_rule']
+			ondelete = row._mapping['delete_rule']
+			deferrable = row._mapping['deferrability']
+			# The values of UPDATE_RULE, DELETE_RULE, and DEFERRABILITY are all integers.
+			# Somewhere as yet undiscovered, they'll probably map to FOREIGN KEY options,
+			# such as [ON {DELETE | UPDATE} {CASCADE | SET DEFAULT | SET NULL}]
+			# TODO: resolve FK options to strings if required for ReflectedForeignKeys.options
 
-				# Retrieve an existing fk from the list or create a new one...
-				# TODO: replace filter with call to _getDictFromList, if faster.
-				filtered = tuple(filter(lambda d: 'name' in d and d['name'] == fk_name , reflectedForeignKeys))
-				if(len(filtered) > 0):
-					fk = filtered[0] # fk found
-				else:
-					# Create a new fk dictionary.
-					# TODO: consider using the default dictionary instead, provided by ReflectionDefaults.foreign_keys, as used by PG and Oracle dialects.
-					fk = {
-						'name': fk_name, # ReflectedConstraint.name
-						'constrained_columns': [],
-						'referred_schema': referred_schema,
-						'referrred_table': referrred_table,
-						'referred_columns': [],
-						'options': {
-							'onupdate': onupdate,
-							'ondelete': ondelete,
-							'deferrable': deferrable # Supported?
-							# TODO: Constraint deferrability is currently unsupported by HSQLDB. Exclude 'deferrable' from this line dictionary?
-						}
+			# Retrieve an existing fk from the list or create a new one...
+			# TODO: replace filter with call to _getDictFromList, if faster.
+			filtered = tuple(filter(lambda d: 'name' in d and d['name'] == fk_name , reflectedForeignKeys))
+			if(len(filtered) > 0):
+				fk = filtered[0] # fk found
+			else:
+				# Create a new fk dictionary.
+				# TODO: consider using the default dictionary instead, provided by ReflectionDefaults.foreign_keys, as used by PG and Oracle dialects.
+				fk = {
+					'name': fk_name, # ReflectedConstraint.name
+					'constrained_columns': [],
+					'referred_schema': referred_schema,
+					'referrred_table': referrred_table,
+					'referred_columns': [],
+					'options': {
+						'onupdate': onupdate,
+						'ondelete': ondelete,
+						'deferrable': deferrable # Supported?
+						# TODO: Constraint deferrability is currently unsupported by HSQLDB. Exclude 'deferrable' from this line dictionary?
 					}
-					reflectedForeignKeys.append(fk)
-				fk['constrained_columns'].append(constrained_columns)
-				fk['referred_columns'].append(referred_columns)
+				}
+				reflectedForeignKeys.append(fk)
+			fk['constrained_columns'].append(constrained_columns)
+			fk['referred_columns'].append(referred_columns)
 		return reflectedForeignKeys
 
 #i  def get_multi_foreign_keys( # Return information about foreign_keys in all tables in the given ``schema``.
@@ -1691,12 +1689,11 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		if schema is None:
 			schema = self.default_schema_name
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(f"""
-				SELECT table_name FROM information_schema.tables
-				WHERE table_schema = '{schema}'
-				AND table_type = 'BASE TABLE'
-			""")
+		cursorResult = connection.exec_driver_sql(f"""
+			SELECT table_name FROM information_schema.tables
+			WHERE table_schema = '{schema}'
+			AND table_type = 'BASE TABLE'
+		""")
 		return cursorResult.scalars().all()
 
 #i  def get_temp_table_names( # Return a list of temporary table names on the given connection, if supported by the underlying backend.
@@ -1705,11 +1702,10 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		if schema is None:
 			schema = self.default_schema_name
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(f"""
-				SELECT table_name FROM information_schema.system_tables
-				WHERE table_type = 'GLOBAL TEMPORARY' AND table_schem = '{schema}'
-			""")
+		cursorResult = connection.exec_driver_sql(f"""
+			SELECT table_name FROM information_schema.system_tables
+			WHERE table_type = 'GLOBAL TEMPORARY' AND table_schem = '{schema}'
+		""")
 		return cursorResult.scalars().all()
 	# HSQLDB supports two types of temporary table, global and local.
 	# Are local temporary table names discoverable through INFORMATION_SCHEMA? It seems not.
@@ -1720,12 +1716,11 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		if schema is None:
 			schema = self.default_schema_name
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(f"""
-				SELECT table_name FROM information_schema.tables
-				WHERE table_schema = '{schema}'
-				AND table_type = 'VIEW'
-			""")
+		cursorResult = connection.exec_driver_sql(f"""
+			SELECT table_name FROM information_schema.tables
+			WHERE table_schema = '{schema}'
+			AND table_type = 'VIEW'
+		""")
 		return cursorResult.scalars().all()
 
 #i  def get_materialized_view_names( #Return a list of all materialized view names available in the database.
@@ -1740,11 +1735,10 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		if schema is None:
 			schema = self.default_schema_name
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(f"""
-				SELECT sequence_name FROM information_schema.sequences
-				WHERE sequence_schema = '{schema}'
-			""")
+		cursorResult = connection.exec_driver_sql(f"""
+			SELECT sequence_name FROM information_schema.sequences
+			WHERE sequence_schema = '{schema}'
+		""")
 		return cursorResult.scalars().all()
 
 #i  def get_temp_view_names( # Return a list of temporary view names on the given connection, if supported by the underlying backend.
@@ -1757,8 +1751,7 @@ class HyperSqlDialect(default.DefaultDialect):
 	@reflection.cache
 	def get_schema_names(self, connection, **kw):
 		self._ensure_has_table_connection(connection)
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql("SELECT schema_name FROM information_schema.schemata")
+		cursorResult = connection.exec_driver_sql("SELECT schema_name FROM information_schema.schemata")
 		return cursorResult.scalars().all()
 
 #i  def get_view_definition( # Return plain or materialized view definition.
@@ -1767,12 +1760,11 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		if schema is None:
 			schema = self.default_schema_name
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(f"""
-				SELECT view_definition FROM information_schema.views
-				WHERE table_name = '{view_name}'
-				AND table_schema = '{schema}'
-			""")
+		cursorResult = connection.exec_driver_sql(f"""
+			SELECT view_definition FROM information_schema.views
+			WHERE table_name = '{view_name}'
+			AND table_schema = '{schema}'
+		""")
 		return cursorResult.scalar()
 
 #i  def get_indexes(
@@ -1797,70 +1789,69 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE table_schem = '{schema}' AND table_name = '{table_name}'
 		"""
 		# TODO: removed commented out fields from above query.
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			for row in cursorResult.all():
-				index_name = row._mapping['INDEX_NAME']
-				idx = _getDictFromList('name', index_name, reflectedIndexList)
-				if idx == None:
-					idx = {
-						'name': index_name,
-						'column_names': [],
-						# 'expressions': [], # Not required. Unsuppored by HSQLDB?
-						'unique': False,
-						# 'duplicates_constraint': # Not required
-						# 'include_columns': None, # Deprecated
-						'column_sorting': {}, # Not required
-						# 'dialect_options': None # Not required.
-					}
-					reflectedIndexList.append(idx)
+		cursorResult = connection.exec_driver_sql(query)
+		for row in cursorResult.all():
+			index_name = row._mapping['INDEX_NAME']
+			idx = _getDictFromList('name', index_name, reflectedIndexList)
+			if idx == None:
+				idx = {
+					'name': index_name,
+					'column_names': [],
+					# 'expressions': [], # Not required. Unsuppored by HSQLDB?
+					'unique': False,
+					# 'duplicates_constraint': # Not required
+					# 'include_columns': None, # Deprecated
+					'column_sorting': {}, # Not required
+					# 'dialect_options': None # Not required.
+				}
+				reflectedIndexList.append(idx)
 
-				column_name = row._mapping['COLUMN_NAME'] # list; if none, returned in expressions list
-				idx['column_names'].append(column_name)
+			column_name = row._mapping['COLUMN_NAME'] # list; if none, returned in expressions list
+			idx['column_names'].append(column_name)
 
-				# expressions = None
-				# TODO: Is the expressions list applicable to HSQLDB?
+			# expressions = None
+			# TODO: Is the expressions list applicable to HSQLDB?
 
-				unique = not(row._mapping['NON_UNIQUE'])
-				if unique == True:
-					idx['duplicates_constraint'] = constraint_name = index_name
-					# Like to Postgresql, HSQLDB appears to implicitly create an index whenever
-					# a unique constraint is added. The index name and constraint name will match.
-					# See "PostgreSQL Index Reflection" in Postgresql's base.py for more detail.
-					# TODO: ensure duplicates_constraint is covered by adequate testing
+			unique = not(row._mapping['NON_UNIQUE'])
+			if unique == True:
+				idx['duplicates_constraint'] = constraint_name = index_name
+				# Like to Postgresql, HSQLDB appears to implicitly create an index whenever
+				# a unique constraint is added. The index name and constraint name will match.
+				# See "PostgreSQL Index Reflection" in Postgresql's base.py for more detail.
+				# TODO: ensure duplicates_constraint is covered by adequate testing
 
-				# idx['include_columns'] = # NotRequired[List[str]] # deprecated 2.0
+			# idx['include_columns'] = # NotRequired[List[str]] # deprecated 2.0
 
-				column_sorting = idx.get('column_sorting')
-				assert column_sorting != None, 'column_sorting is None'
-				# TODO: remove assertion when done
+			column_sorting = idx.get('column_sorting')
+			assert column_sorting != None, 'column_sorting is None'
+			# TODO: remove assertion when done
 
-				asc_or_desc = row._mapping['ASC_OR_DESC'] # Can be 'A', 'D', or null
-				if(asc_or_desc == 'A'):
-					column_sorting[column_name] = ('asc',)
-				asc_or_desc = row._mapping['ASC_OR_DESC']
-				if(asc_or_desc == 'D'):
-					column_sorting[column_name] = ('desc',)
-				# The tuples for each item in the column_sorting dictionary may
-				# contain 'asc', 'desc', 'nulls_first', 'nulls_last'.
-				# HSQLDB doesn't appear to have a field for nulls first / last,
-				# and only ascending ordering has been observed so far.
-				assert asc_or_desc == 'A' or asc_or_desc == 'D'
-				# TODO: remove the assertion and revise comments above.
+			asc_or_desc = row._mapping['ASC_OR_DESC'] # Can be 'A', 'D', or null
+			if(asc_or_desc == 'A'):
+				column_sorting[column_name] = ('asc',)
+			asc_or_desc = row._mapping['ASC_OR_DESC']
+			if(asc_or_desc == 'D'):
+				column_sorting[column_name] = ('desc',)
+			# The tuples for each item in the column_sorting dictionary may
+			# contain 'asc', 'desc', 'nulls_first', 'nulls_last'.
+			# HSQLDB doesn't appear to have a field for nulls first / last,
+			# and only ascending ordering has been observed so far.
+			assert asc_or_desc == 'A' or asc_or_desc == 'D'
+			# TODO: remove the assertion and revise comments above.
 
-				if False:
-					# The SYSTEM_INDEXINFO table has a few more columns which
-					# haven't been queried for. If these are useful, update the
-					# query and they can be added as dialect_options...
-					idx['dialect_options'] = {
-						'type': row._mapping['TYPE'],
-						'ordinal_position': row._mapping['ORDINAL_POSITION'],
-						'cardinality': row._mapping['CARDINALITY'],
-						'pages': row._mapping['PAGES'],
-						'filter_condition': row._mapping['FILTER_CONDITION'],
-						'row_cardinality': row._mapping['ROW_CARDINALITY'],
-					}
-					# TODO: remove this block of code if unused.
+			if False:
+				# The SYSTEM_INDEXINFO table has a few more columns which
+				# haven't been queried for. If these are useful, update the
+				# query and they can be added as dialect_options...
+				idx['dialect_options'] = {
+					'type': row._mapping['TYPE'],
+					'ordinal_position': row._mapping['ORDINAL_POSITION'],
+					'cardinality': row._mapping['CARDINALITY'],
+					'pages': row._mapping['PAGES'],
+					'filter_condition': row._mapping['FILTER_CONDITION'],
+					'row_cardinality': row._mapping['ROW_CARDINALITY'],
+				}
+				# TODO: remove this block of code if unused.
 
 		return reflectedIndexList
 
@@ -1883,21 +1874,20 @@ class HyperSqlDialect(default.DefaultDialect):
 			AND table_name = '{table_name}'
 			AND constraint_schema = '{schema}'
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			for row in cursorResult.all():
-				ct_name = index_name = row._mapping['CONSTRAINT_NAME']
-				ct = _getDictFromList('name', ct_name, reflectedUniqueConstraint)
-				if ct == None:
-					ct = {
-						'name': ct_name, # ReflectedConstraint.name
-						'column_names': [],
-						'duplicates_index': index_name, # Assumed it's a duplicate because HSQLDB implicitly creates an index on creation of a unique constraint
-						'dialect_options': {}
-					}
-					reflectedUniqueConstraint.append(ct)
-				column_name = row._mapping['COLUMN_NAME']
-				ct['column_names'].append(column_name)
+		cursorResult = connection.exec_driver_sql(query)
+		for row in cursorResult.all():
+			ct_name = index_name = row._mapping['CONSTRAINT_NAME']
+			ct = _getDictFromList('name', ct_name, reflectedUniqueConstraint)
+			if ct == None:
+				ct = {
+					'name': ct_name, # ReflectedConstraint.name
+					'column_names': [],
+					'duplicates_index': index_name, # Assumed it's a duplicate because HSQLDB implicitly creates an index on creation of a unique constraint
+					'dialect_options': {}
+				}
+				reflectedUniqueConstraint.append(ct)
+			column_name = row._mapping['COLUMN_NAME']
+			ct['column_names'].append(column_name)
 		return reflectedUniqueConstraint
 
 #i  def get_multi_unique_constraints(
@@ -1919,17 +1909,16 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE table_name = '{table_name}'
 			AND table_schema = '{schema}'
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			for row in cursorResult.all():
-				constraint_name = row._mapping['CONSTRAINT_NAME']
-				check_clause = row._mapping['CHECK_CLAUSE']
-				constraint = {
-					'name': constraint_name,
-					'sqltext': check_clause,
-					'dialect_options': {}
-				}
-				reflectedCheckConstraint.append(constraint)
+		cursorResult = connection.exec_driver_sql(query)
+		for row in cursorResult.all():
+			constraint_name = row._mapping['CONSTRAINT_NAME']
+			check_clause = row._mapping['CHECK_CLAUSE']
+			constraint = {
+				'name': constraint_name,
+				'sqltext': check_clause,
+				'dialect_options': {}
+			}
+			reflectedCheckConstraint.append(constraint)
 		return reflectedCheckConstraint
 
 #i  def get_multi_check_constraints(
@@ -1951,38 +1940,37 @@ class HyperSqlDialect(default.DefaultDialect):
 			--AND table_cat = 'PUBLIC'
 			--AND table_type != 'VIEW'
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			row = cursorResult.first()
-			if not row and self.has_table(connection, table_name, schema) == False:
-				raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)				
-			assert row is not None, 'Row is None.'
+		cursorResult = connection.exec_driver_sql(query)
+		row = cursorResult.first()
+		if not row and self.has_table(connection, table_name, schema) == False:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)				
+		assert row is not None, 'Row is None.'
 
-			# table_name = row._mapping['TABLE_NAME']
-			table_type = row._mapping['TABLE_TYPE']			# GLOBAL TEMPORARY | more...
-			hsqldb_type = row._mapping['HSQLDB_TYPE']		# MEMORY | CACHED | TEXT
-			commit_action = row._mapping['COMMIT_ACTION']  	# DELETE | PRESERVE | NULL
+		# table_name = row._mapping['TABLE_NAME']
+		table_type = row._mapping['TABLE_TYPE']			# GLOBAL TEMPORARY | more...
+		hsqldb_type = row._mapping['HSQLDB_TYPE']		# MEMORY | CACHED | TEXT
+		commit_action = row._mapping['COMMIT_ACTION']  	# DELETE | PRESERVE | NULL
 
-			# The table type options in HSQLDB are: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
+		# The table type options in HSQLDB are: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
 
-			# Table type information is stored in one of two columns depending on the type.
-			# All* temporary types are stored as 'GLOBAL TEMPORARY' in the TABLE_TYPE column,
-			# while MEMORY, CACHED, and TEXT types are recorded in the HSQLDB_TYPE column.
-			# [* Possibly incorrect. Local temporary tables, a.k.a session tables, are not schema objects. See: (https://hsqldb.org/doc/2.0/guide/sessions-chapt.html)]
+		# Table type information is stored in one of two columns depending on the type.
+		# All* temporary types are stored as 'GLOBAL TEMPORARY' in the TABLE_TYPE column,
+		# while MEMORY, CACHED, and TEXT types are recorded in the HSQLDB_TYPE column.
+		# [* Possibly incorrect. Local temporary tables, a.k.a session tables, are not schema objects. See: (https://hsqldb.org/doc/2.0/guide/sessions-chapt.html)]
 
-			# Combine type information from two columns into a single key value...
-			if table_type.find('TEMP') >= 0:
-				# GLOBAL TEMPORARY | TEMPORARY | TEMP
-				tableOptions['type'] = table_type
-				# TODO: confirm all temporary types are treated as global temporary, and there's no other way to identify the different types of temporary table.
-			else:
-				# MEMORY | CACHED | TEXT
-				tableOptions['type'] = hsqldb_type
-				# TODO: confirm using a single key is the correct approach.
-				# TODO: Additional settings for TEXT tables are configured separately. Consider exposing them here.
+		# Combine type information from two columns into a single key value...
+		if table_type.find('TEMP') >= 0:
+			# GLOBAL TEMPORARY | TEMPORARY | TEMP
+			tableOptions['type'] = table_type
+			# TODO: confirm all temporary types are treated as global temporary, and there's no other way to identify the different types of temporary table.
+		else:
+			# MEMORY | CACHED | TEXT
+			tableOptions['type'] = hsqldb_type
+			# TODO: confirm using a single key is the correct approach.
+			# TODO: Additional settings for TEXT tables are configured separately. Consider exposing them here.
 
-			if commit_action != None:
-				tableOptions['commit_action'] = commit_action
+		if commit_action != None:
+			tableOptions['commit_action'] = commit_action
 
 		return tableOptions
 		# TODO: Document the TableOptions attributes defined in get_table_options
@@ -2001,13 +1989,12 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE table_name = '{table_name}'
 			AND table_schem = '{schema}'
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			comment = cursorResult.scalar()
-			if comment is not None:
-				return {"text": comment}
-			else:
-				return ReflectionDefaults.table_comment()
+		cursorResult = connection.exec_driver_sql(query)
+		comment = cursorResult.scalar()
+		if comment is not None:
+			return {"text": comment}
+		else:
+			return ReflectionDefaults.table_comment()
 	# The get_table_comment method currently returns a ReflectedTableComment object, regardless of whether the table exists or not.
 	# When a table doesn't exist we should be raising an exc.NoSuchTableError, so we know the table doesn't exist.
 	# TODO: Review all methods to ensure they raise an exception when tables don't exist.
@@ -2065,9 +2052,8 @@ class HyperSqlDialect(default.DefaultDialect):
 			AND table_schem = '{schema}'
 			LIMIT 1
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			return cursorResult.scalar() > 0
+		cursorResult = connection.exec_driver_sql(query)
+		return cursorResult.scalar() > 0
 		# TODO: raise exc.NoSuchTableError when required
 
 #i  def has_sequence(
@@ -2082,9 +2068,8 @@ class HyperSqlDialect(default.DefaultDialect):
 			AND sequence_schema = '{schema}'
 			LIMIT 1
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			return cursorResult.scalar() > 0
+		cursorResult = connection.exec_driver_sql(query)
+		return cursorResult.scalar() > 0
 		# TODO: raise exc.NoSuchTableError when required
 
 #i  def has_schema(
@@ -2096,9 +2081,8 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE schema_name = '{schema_name}'
 			--AND catalog_name = 'PUBLIC'
 		"""
-		with connection as conn:
-			cursorResult = conn.exec_driver_sql(query)
-			return cursorResult.scalar() > 0
+		cursorResult = connection.exec_driver_sql(query)
+		return cursorResult.scalar() > 0
 		# TODO: cater for multiple catalogs
 
 #i  def _get_server_version_info(self, connection: Connection) -> Any:
