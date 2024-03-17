@@ -1,2 +1,2 @@
 
-# An empty file, just like the one for Access.
+# An empty file, just like the ones belonging to other dialects.
