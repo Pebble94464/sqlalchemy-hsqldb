@@ -195,7 +195,9 @@ colspecs = {
 #
 ischema_names = {
 
-	# TODO: Mapping BLOB to sqltypes.BLOB is probably the correct way to do it. Swap out the mapping to JDBCBlobClient and test again to verify it still works.
+	# TODO: Mapping BLOB to sqltypes.BLOB is probably the correct way to do it. 
+	# Swap out the mapping to JDBCBlobClient and test again to verify it still works.
+	#
 	# WIP: trying swapping out JDBCBlobClient for BLOB...
 	# "BLOB": JDBCBlobClient,
 	"BLOB": sqltypes.BLOB,
@@ -203,8 +205,11 @@ ischema_names = {
 	# TODO: try mapping BOOLEAN to sqltypes.BOOLEAN. Test and verify it works.
 	# "BOOLEAN": HyperSqlBoolean,
 
+	"CHARACTER": sqltypes.CHAR,
+	"DOUBLE" : sqltypes.DOUBLE, # 64 bit precision floating point number
 	"INTEGER": sqltypes.INTEGER,
 	"NUMERIC": sqltypes.NUMERIC,
+	"VARCHAR": sqltypes.VARCHAR,
 }
 
 
@@ -417,8 +422,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		raise NotImplementedError('xxx: visit_extract')
 
 #i visit_false; sql; ms; my; ora
-	def visit_false(self, expr, **kw):
-		raise NotImplementedError('xxx: visit_false')
+	#- def visit_false(self, expr, **kw): # inherit
+	#- 	raise NotImplementedError('xxx: visit_false')
 
 #i visit_function; sql; ora
 	def visit_function(self, func, add_to_result_map=None, **kwargs, ) -> str:
@@ -508,8 +513,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i visit_to_tsvector_func; pg
 
 #i visit_true; sql; ms; my; ora
-	def visit_true(self, expr, **kw):
-		raise NotImplementedError('xxx: visit_true')
+	#- def visit_true(self, expr, **kw): # inherit
+	#- 	raise NotImplementedError('xxx: visit_true')
 
 #i visit_try_cast; ms
 #i visit_ts_headline_func; pg
@@ -546,8 +551,8 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 
 #i define_constraint_match; ddl; my
 	def define_constraint_match(self, constraint):
-		assert constraint.match in ['FULL', 'PARTIAL', 'SIMPLE']
-		return compiler.DDLCompiler.define_constraint_match(constraint)
+		#- assert constraint.match in ['FULL', 'PARTIAL', 'SIMPLE']
+		return compiler.DDLCompiler.define_constraint_match(self, constraint)
 	# MATCH is a keyword for HSQLDB, used with FK constraints.
 	# See: https://hsqldb.org/doc/2.0/guide/databaseobjects-chapt.html
 	# TODO: verify inherited define_constraint_match method works as expected for HSQLDB. If so, delete this override.
@@ -625,7 +630,7 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 #i get_identity_options; ddl; ora
 	def get_identity_options(self, identity_options):
 		assert identity_options.cache is None, "HSQLDB doesn't support identity_options.cache"
-		return compiler.DDLCompiler.get_identity_options(identity_options)
+		return compiler.DDLCompiler.get_identity_options(self, identity_options)
 	# HSQLDB appears to support most of the identity options found in
 	# compiler.DDLCompiler.get_identity_options method, except for "CACHED".
 	#
@@ -774,7 +779,7 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 
 #i visit_identity_column; ddl; ms; ora
 	#- def visit_identity_column(self, identity, **kw):  #- inherit from compiler.DDLCompiler
-	#- 	raise NotImplementedError('xxx: visit_identity_column')
+	#- 	return super().visit_identity_column(identity, **kw)
 
 #i visit_primary_key_constraint; ddl; ms; my
 	#- def visit_primary_key_constraint(self, constraint, **kw):  #- inherit from compiler.DDLCompiler
@@ -974,13 +979,15 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 
 #i post_exec; ec; dec; ms
 	def post_exec(self):
-		print('### post_exec')
+		#- print('### post_exec')
 		super().post_exec()
+	# TODO: inherit if unused
 
 #i pre_exec; ec; dec; ms; ora
 	def pre_exec(self):
-		print('### pre_exec')
+		#- print('### pre_exec')
 		super().pre_exec()
+	# TODO: inherit if unused
 
 	# # def pre_exec_pg8000(self):
 	# # 	if not self.compiled:
@@ -1558,7 +1565,7 @@ class HyperSqlDialect(default.DefaultDialect):
 			col_name = self.normalize_name(row._mapping['column_name']) # str """column name"""
 # WIP: -->
 # TODO: col_name needed normalizing. What other identifiers, PKs, FKs?
-			assert row._mapping['type_name'] in ischema_names, "ischema_names is missing a key for datatype %s" % row._mapping['TYPE_NAME']
+			assert row._mapping['type_name'] in ischema_names, "ischema_names is missing a key for datatype %s" % row._mapping['type_name']
 			col_type = row._mapping['type_name'] # A String value, e.g. 'INTEGER'; TypeEngine[Any] """column type represented as a :class:`.TypeEngine` instance."""
 
 			col_nullable = bool(row._mapping['nullable']) # bool """boolean flag if the column is NULL or NOT NULL"""
@@ -1577,27 +1584,46 @@ class HyperSqlDialect(default.DefaultDialect):
 
 			col_dialect_options = None # NotRequired[Dict[str, Any]] Additional dialect-specific options detected for this reflected object
 
-			kwargs = {}
+			#- What happens if you attempt to query a non-existant column?
+			#- e.g. idontexist = row._mapping['idontexist']
+			#- 		sqlalchemy.exc.NoSuchColumnError: Could not locate column in row for column 'idontexist'
 
-			col_numeric_precision = row._mapping['numeric_precision']
-			if col_numeric_precision:
-				kwargs["precision"] = int(col_numeric_precision)
-
-			col_numeric_scale = row._mapping['numeric_scale']
-			if col_numeric_scale:
-				kwargs['scale'] = int(col_numeric_scale)
-
-			col_character_maximum_length = row._mapping['character_maximum_length']
-			if col_character_maximum_length:
-				kwargs['length'] = int(col_character_maximum_length)
-
-			if len(kwargs) > 0 and False:
-				col_type = ischema_names[col_type](**kwargs)
-				# TODO: ischema_names.get(col_type)
-				# Note Oracle doesn't pass kwargs to type constructors, only required params, e.g. col_type = NUMERIC(precision,scale) 
-				# TODO: fix... TypeError: INTEGER() takes no arguments
+			if col_type == 'NUMERIC':
+				col_numeric_precision = row._mapping['numeric_precision']
+				col_numeric_scale = row._mapping['numeric_scale']
+				col_type = ischema_names.get(col_type)(
+					int(col_numeric_precision),
+					int(col_numeric_scale)
+				)
+			elif col_type == 'VARCHAR':
+				col_character_maximum_length = row._mapping['character_maximum_length']
+				col_type = ischema_names.get(col_type)(
+					int(col_character_maximum_length)
+				)
 			else:
 				col_type = ischema_names.get(col_type)()
+
+			# # # kwargs = {}
+
+			# # # col_numeric_precision = row._mapping['numeric_precision']
+			# # # if col_numeric_precision:
+			# # # 	kwargs["precision"] = int(col_numeric_precision)
+
+			# # # col_numeric_scale = row._mapping['numeric_scale']
+			# # # if col_numeric_scale:
+			# # # 	kwargs['scale'] = int(col_numeric_scale)
+
+			# # # col_character_maximum_length = row._mapping['character_maximum_length']
+			# # # if col_character_maximum_length:
+			# # # 	kwargs['length'] = int(col_character_maximum_length)
+
+			# # # if len(kwargs) > 0 and False:
+			# # # 	col_type = ischema_names[col_type](**kwargs)
+			# # # 	# TODO: ischema_names.get(col_type)
+			# # # 	# Note Oracle doesn't pass kwargs to type constructors, only required params, e.g. col_type = NUMERIC(precision,scale) 
+			# # # 	# TODO: fix... TypeError: INTEGER() takes no arguments
+			# # # else:
+			# # # 	col_type = ischema_names.get(col_type)()
 
 			#- if issubclass(col_type, sqltypes.Numeric) == True:
 			#- pass
@@ -1648,9 +1674,7 @@ class HyperSqlDialect(default.DefaultDialect):
 	@reflection.cache
 	def get_foreign_keys(self, connection, table_name, schema=None, **kw):
 		self._ensure_has_table_connection(connection)
-		if schema is None:
-			schema = self.default_schema_name
-		assert schema is not None
+		default_schema = schema or self.default_schema_name
 		reflectedForeignKeys = []
 		query = """
 			SELECT
@@ -1665,15 +1689,19 @@ class HyperSqlDialect(default.DefaultDialect):
 			FROM information_schema.system_crossreference
 			WHERE fktable_schem = (?) AND fktable_name = (?)"""
 		cursorResult = connection.exec_driver_sql(query,
-			(self.denormalize_name(schema), self.denormalize_name(table_name)))
+			(self.denormalize_name(default_schema), self.denormalize_name(table_name)))
 		for row in cursorResult.all():
-			print('#### get_foreign_keys row._mapping', row._mapping.keys()) #- TODO: remove
 			# Note row._mapping is using column names as keys and not the aliases defined in the query.
-			fk_name = row._mapping['fk_name']
-			constrained_columns = row._mapping['fkcolumn_name']
-			referred_schema = row._mapping['pktable_schem']
-			referrred_table = row._mapping['pktable_name']
-			referred_columns = row._mapping['pkcolumn_name']
+			fk_name = self.normalize_name(row._mapping['fk_name'])
+			constrained_columns = self.normalize_name(row._mapping['fkcolumn_name'])
+
+			if schema == None:
+				referred_schema = None
+			else:
+				referred_schema = self.normalize_name(row._mapping['pktable_schem'])
+
+			referred_table = self.normalize_name(row._mapping['pktable_name'])
+			referred_columns = self.normalize_name(row._mapping['pkcolumn_name'])
 			onupdate = row._mapping['update_rule']
 			ondelete = row._mapping['delete_rule']
 			deferrable = row._mapping['deferrability']
@@ -1694,7 +1722,7 @@ class HyperSqlDialect(default.DefaultDialect):
 					'name': fk_name, # ReflectedConstraint.name
 					'constrained_columns': [],
 					'referred_schema': referred_schema,
-					'referrred_table': referrred_table,
+					'referred_table': referred_table,
 					'referred_columns': [],
 					'options': {
 						'onupdate': onupdate,
@@ -2415,12 +2443,8 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def get_dialect_pool_class(self, url: URL) -> Type[Pool]:
 	#- Inherit from DefaultDialect
 
-# WIP: -->
-
-	# Set 'supports_schemas' to false to disable schema-level tests
-	supports_schemas = False
-	# TODO: try setting to True (or removing) when we're ready for testing. Only the Access dialect appears to set it to false. Does it take too long to test?
-	# TODO: find out where the above property is from - it's not part of the Dialect interface.
+	supports_schemas = True # Setting 'supports_schemas' to false disables schema level tests.
+	# TODO: remove line above, i.e. inherit from DefaultDialect.supports_schemas
 
 	#- ok
 	supports_is_distinct_from = True
