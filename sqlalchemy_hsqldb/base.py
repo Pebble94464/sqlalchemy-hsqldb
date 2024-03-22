@@ -1674,7 +1674,7 @@ class HyperSqlDialect(default.DefaultDialect):
 	@reflection.cache
 	def get_foreign_keys(self, connection, table_name, schema=None, **kw):
 		self._ensure_has_table_connection(connection)
-		default_schema = schema or self.default_schema_name
+		fktable_schem = schema or self.default_schema_name
 		reflectedForeignKeys = []
 		query = """
 			SELECT
@@ -1689,12 +1689,15 @@ class HyperSqlDialect(default.DefaultDialect):
 			FROM information_schema.system_crossreference
 			WHERE fktable_schem = (?) AND fktable_name = (?)"""
 		cursorResult = connection.exec_driver_sql(query,
-			(self.denormalize_name(default_schema), self.denormalize_name(table_name)))
+			(self.denormalize_name(fktable_schem), self.denormalize_name(table_name)))
 		for row in cursorResult.all():
 			# Note row._mapping is using column names as keys and not the aliases defined in the query.
 			fk_name = self.normalize_name(row._mapping['fk_name'])
 			constrained_columns = self.normalize_name(row._mapping['fkcolumn_name'])
 
+			# If the schema specified was None, we set referred_schema to None
+			# and ignore the schema in pktable_schem.
+			# (Not confident it's correct but implemented this way to pass ComponentReflectionTest::test_get_foreign_keys)
 			if schema == None:
 				referred_schema = None
 			else:
