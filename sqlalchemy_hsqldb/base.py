@@ -1850,14 +1850,15 @@ class HyperSqlDialect(default.DefaultDialect):
 		# TODO: removed commented out fields from above query.
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(schema), self.denormalize_name(table_name)))
 		for row in cursorResult.all():
-			index_name = row._mapping['INDEX_NAME']
+			index_name = self.normalize_name(row._mapping['index_name'])
+			unique = not(row._mapping['non_unique'])
 			idx = _getDictFromList('name', index_name, reflectedIndexList)
-			if idx == None:
+			if idx == None: # i.e. not already in reflectedIndexList...
 				idx = {
 					'name': index_name,
 					'column_names': [],
 					# 'expressions': [], # Not required. Unsuppored by HSQLDB?
-					'unique': False,
+					'unique': unique,
 					# 'duplicates_constraint': # Not required
 					# 'include_columns': None, # Deprecated
 					'column_sorting': {}, # Not required
@@ -1865,16 +1866,15 @@ class HyperSqlDialect(default.DefaultDialect):
 				}
 				reflectedIndexList.append(idx)
 
-			column_name = row._mapping['COLUMN_NAME'] # list; if none, returned in expressions list
+			column_name = self.normalize_name(row._mapping['column_name']) # list; if none, returned in expressions list
 			idx['column_names'].append(column_name)
 
 			# expressions = None
 			# TODO: Is the expressions list applicable to HSQLDB?
 
-			unique = not(row._mapping['NON_UNIQUE'])
 			if unique == True:
 				idx['duplicates_constraint'] = constraint_name = index_name
-				# Like to Postgresql, HSQLDB appears to implicitly create an index whenever
+				# Like Postgresql, HSQLDB appears to implicitly create an index whenever
 				# a unique constraint is added. The index name and constraint name will match.
 				# See "PostgreSQL Index Reflection" in Postgresql's base.py for more detail.
 				# TODO: ensure duplicates_constraint is covered by adequate testing
@@ -1885,10 +1885,10 @@ class HyperSqlDialect(default.DefaultDialect):
 			assert column_sorting != None, 'column_sorting is None'
 			# TODO: remove assertion when done
 
-			asc_or_desc = row._mapping['ASC_OR_DESC'] # Can be 'A', 'D', or null
+			asc_or_desc = row._mapping['asc_or_desc'] # Can be 'A', 'D', or null
 			if(asc_or_desc == 'A'):
 				column_sorting[column_name] = ('asc',)
-			asc_or_desc = row._mapping['ASC_OR_DESC']
+			asc_or_desc = row._mapping['asc_or_desc']
 			if(asc_or_desc == 'D'):
 				column_sorting[column_name] = ('desc',)
 			# The tuples for each item in the column_sorting dictionary may
