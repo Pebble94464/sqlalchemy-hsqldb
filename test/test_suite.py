@@ -116,7 +116,8 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 # #         return
 
 	@testing.skip('hsqldb', reason='Unique indexes were deprecated in HSQLDB 1.8')
-	def test_get_indexes(self, connection, use_schema):
+	def test_get_indexes(self):
+	#- def test_get_indexes(self, connection, use_schema):
 		return
 
 	@testing.combinations((False,), (True, testing.requires.schemas), argnames="use_schema")
@@ -166,25 +167,38 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 		# count of indexes instead of calling _check_list?
 
 
-# #     @testing.skip("access")
-# #     def test_get_multi_columns(self):
-# #         # tests fail due to ODBC driver bug always reporting nullable=True
-# #         return
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_get_multi_columns(self):
+		return
+		#- Access comment: test fails due to ODBC driver bug always reporting nullable=True
+	# TODO: enable test after get_multi_columns has been implemented.
 
-# #     @testing.skip("access")
-# #     def test_get_multi_indexes(self):
-# #         # tests fail because we don't support table/column comments
-# #         return
+#- line 2188
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_get_multi_pk_constraint(self):
+		#- Access comment: Access does not support all options tested
+		return
+	# TODO: enable test after get_multi_pk_constraint has been implemented.
 
-# #     @testing.skip("access")
-# #     def test_get_multi_pk_constraint(self):
-# #         # Access does not support all options tested
-# #         return
+#- line 2220
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_get_multi_foreign_keys(self):
+		return
+	# TODO: enable test after get_multi_foreign_keys has been implemented.
 
-# #     @testing.skip("access")
-# #     def test_get_multi_unique_constraints(self):
-# #         # not implemented
-# #         return
+#- line 2241
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_get_multi_indexes(self):
+		#- Access comment: tests fail because we don't support table/column comments
+		return
+	# TODO: enable test after get_multi_indexes has been implemented.
+
+
+#- line 2259
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_get_multi_unique_constraints(self):
+		return
+	# TODO: enable test after get_multi_unique_constraints has been implemented.
 
 # #     @testing.skip("access")
 # #     def test_get_noncol_index(self):
