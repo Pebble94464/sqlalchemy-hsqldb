@@ -1841,17 +1841,26 @@ class HyperSqlDialect(default.DefaultDialect):
 			,column_name
 			-- expressions
 			,non_unique
-			-- duplicates_constraint
 			-- include_columns
 			,asc_or_desc
+			--, cst.constraint_name = index_name AS duplicates_constraint
+			, cst.constraint_type
 			FROM information_schema.system_indexinfo
+			LEFT JOIN information_schema.table_constraints cst
+			ON index_name = cst.constraint_name
+			--AND table_name = cst.table_name
+			AND table_schem = cst.table_schema
 			WHERE table_schem = (?) AND table_name = (?)
 		"""
 		# TODO: removed commented out fields from above query.
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(schema), self.denormalize_name(table_name)))
 		for row in cursorResult.all():
 			index_name = self.normalize_name(row._mapping['index_name'])
+			constraint_type = row._mapping['constraint_type'] # PRIMARY KEY | FOREIGN KEY | UNIQUE. If NULL, the index doesn't duplicate a constraint.
+
+			# Primary keys and unique constraints are both unique, so we can simply use the non_unique field here...
 			unique = not(row._mapping['non_unique'])
+
 			idx = _getDictFromList('name', index_name, reflectedIndexList)
 			if idx == None: # i.e. not already in reflectedIndexList...
 				idx = {
@@ -1872,13 +1881,10 @@ class HyperSqlDialect(default.DefaultDialect):
 			# expressions = None
 			# TODO: Is the expressions list applicable to HSQLDB?
 
-			if unique == True:
+			if constraint_type != None:
+				# A non-null constraint_type indicates the index and constraint names matched, so...
 				idx['duplicates_constraint'] = constraint_name = index_name
-				# Like Postgresql, HSQLDB appears to implicitly create an index whenever
-				# a unique constraint is added. The index name and constraint name will match.
-				# See "PostgreSQL Index Reflection" in Postgresql's base.py for more detail.
-				# TODO: ensure duplicates_constraint is covered by adequate testing
-
+		
 			# idx['include_columns'] = # NotRequired[List[str]] # deprecated 2.0
 
 			column_sorting = idx.get('column_sorting')
