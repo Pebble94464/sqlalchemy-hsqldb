@@ -115,6 +115,57 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 # #         # Access does not support all options tested
 # #         return
 
+	@testing.skip('hsqldb', reason='Unique indexes were deprecated in HSQLDB 1.8')
+	def test_get_indexes(self, connection, use_schema):
+		return
+
+	@testing.combinations((False,), (True, testing.requires.schemas), argnames="use_schema")
+	@testing.requires.index_reflection
+	def test_get_indexes_hsqldb(self, connection, use_schema):
+		""" This test is intended to replace the original test_get_indexes.
+			The original fails when it attempts to test unique indexes,
+			which were deprecated in HSQLDB 1.8
+		"""
+		if use_schema:
+			schema = config.test_schema
+		else:
+			schema = None
+
+		insp = inspect(connection)
+		indexes = insp.get_indexes("users", schema=schema)
+		expected_indexes = self.exp_indexes(schema=schema)
+
+		filtered_indexes = []
+		for exp_idx in expected_indexes[(schema, 'users')]:
+			# Unique indexes are deprecated in favour of unique constraints.
+			# Ammend expected_indexes because unique flag is now False.
+			if 'unique' in exp_idx:
+				exp_idx['unique'] = False
+
+			# DBs may return indexes in any order, and create indexes
+			# for foreign keys, etc. Filter out unexpected indexes and 
+			# preserve the exxpected order...
+			for idx in indexes:
+				if idx['name'] == exp_idx['name']:
+					filtered_indexes.append(idx)
+					break
+
+		self._check_list(
+			filtered_indexes,
+			expected_indexes[(schema, "users")],
+			self._required_index_keys
+		)
+
+		tbl_no_cst = self.tables.no_constraints.name
+		self._check_list(
+			insp.get_indexes(tbl_no_cst, schema=schema),
+			expected_indexes[(schema, tbl_no_cst)],
+			self._required_index_keys,
+		)
+		# Table 'no_constraints' has no indexes. Why not simply check the
+		# count of indexes instead of calling _check_list?
+
+
 # #     @testing.skip("access")
 # #     def test_get_multi_columns(self):
 # #         # tests fail due to ODBC driver bug always reporting nullable=True
