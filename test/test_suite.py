@@ -173,6 +173,11 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 		#- Access comment: test fails due to ODBC driver bug always reporting nullable=True
 	# TODO: enable test after get_multi_columns has been implemented.
 
+#- line 1837
+	@testing.skip('hsqldb', reason='Although ASC or DESC can be specified it has no effect')
+	def test_get_noncol_index(self):
+		return
+
 #- line 2188
 	@testing.skip('hsqldb', reason='Not yet implemented')
 	def test_get_multi_pk_constraint(self):
@@ -200,10 +205,6 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 		return
 	# TODO: enable test after get_multi_unique_constraints has been implemented.
 
-# #     @testing.skip("access")
-# #     def test_get_noncol_index(self):
-# #         # Access creates extra indexes that this test does not expect
-# #         return
 
 # #     @testing.skip("access")
 # #     def test_get_pk_constraint(self):
