@@ -1811,7 +1811,7 @@ class HyperSqlDialect(default.DefaultDialect):
 	def get_schema_names(self, connection, **kw):
 		self._ensure_has_table_connection(connection)
 		cursorResult = connection.exec_driver_sql("SELECT schema_name FROM information_schema.schemata")
-		return cursorResult.scalars().all()
+		return list(map(self.normalize_name, cursorResult.scalars().all()))
 
 #i  def get_view_definition( # Return plain or materialized view definition.
 	@reflection.cache
