@@ -2,7 +2,7 @@
 # This file sets up directives regarding database capabilities.
 #
 # WIP:
-# The properties of the HyperSqlRequirements class below have been copied in from SuiteRequiements,
+# The properties of the HyperSqlRequirements class below have been copied in from SuiteRequirements,
 # more or less as-is, except for the addition of the 'array_type' property.
 # Still need to consider which properties are appropriate for HSQLDB and set them accordingly.
 
@@ -1766,7 +1766,7 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def reflect_table_options(self):
         """Target database must support reflecting table_options."""
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def materialized_views(self):
