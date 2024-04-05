@@ -2012,9 +2012,9 @@ class HyperSqlDialect(default.DefaultDialect):
 		assert row is not None, 'Row is None.'
 
 		# table_name = row._mapping['TABLE_NAME']
-		table_type = row._mapping['TABLE_TYPE']			# GLOBAL TEMPORARY | more...
-		hsqldb_type = row._mapping['HSQLDB_TYPE']		# MEMORY | CACHED | TEXT
-		commit_action = row._mapping['COMMIT_ACTION']  	# DELETE | PRESERVE | NULL
+		table_type = row._mapping['table_type']			# GLOBAL TEMPORARY | more...
+		hsqldb_type = row._mapping['hsqldb_type']		# MEMORY | CACHED | TEXT
+		commit_action = row._mapping['commit_action']  	# DELETE | PRESERVE | NULL
 
 		# The table type options in HSQLDB are: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
 
