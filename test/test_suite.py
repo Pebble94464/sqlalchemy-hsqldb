@@ -14,7 +14,8 @@
 
 # Import the entire test suite...
 from sqlalchemy.testing.suite import *
-
+import operator
+import sqlalchemy as sa
 
 # WIP: -->
 # import a local test... 
@@ -248,6 +249,110 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 # #     def test_get_unique_constraints(self):
 # #         # Access barfs on DDL trying to create a constraint named "i.have.dots"
 # #         return
+
+
+#- line 1886
+	@testing.skip('hsqldb', reason='HSQLDB can create constraints unique_a_b_c or unique_c_a_b, but not both because they use the same columns')
+	def test_get_unique_constraints(self):
+		return
+
+	# @testing.skip('hsqldb', reason='Failing because of something related to dialect_options and DialectKWArgs.')
+	@testing.combinations(
+		(True, testing.requires.schemas), (False,), argnames="use_schema"
+	)
+	@testing.requires.unique_constraint_reflection
+	def test_get_unique_constraints_hsqldb(self, metadata, connection, use_schema):
+		"""
+		Replacement for test_get_unique_constraints.
+		HSQLDB doesn't appear to support indexes with dupicate columns like unique_a_b_c and unique_c_a_b.
+		"""
+		if use_schema:
+			schema = config.test_schema
+		else:
+			schema = None
+
+		uniques = sorted(
+			[
+				{"name": "unique_a", "column_names": ["a"]},
+				{"name": "unique_a_b_c", "column_names": ["a", "b", "c"]},
+				# {"name": "unique_c_a_b", "column_names": ["c", "a", "b"]}, # Unsupported.
+				{"name": "unique_asc_key", "column_names": ["asc", "key"]},
+				{"name": "i.have.dots", "column_names": ["b"]},
+				{"name": "i have spaces", "column_names": ["c"]},
+			],
+			key=operator.itemgetter("name"), # sort by name
+		)
+
+		# Create table and constraints...
+		table = Table(
+			"testtbl",
+			metadata,
+			Column("a", sa.String(20)),
+			Column("b", sa.String(30)),
+			Column("c", sa.Integer),
+			# reserved identifiers
+			Column("asc", sa.String(30)),
+			Column("key", sa.String(30)),
+			schema=schema,
+		)
+		for uc in uniques:
+			table.append_constraint(
+				sa.UniqueConstraint(*uc["column_names"], name=uc["name"])
+			)
+		table.create(connection)
+
+		# Verify UCs using the Inspector.get_unique_constraints method...
+		insp = inspect(connection)
+		reflected = sorted(
+			insp.get_unique_constraints("testtbl", schema=schema),
+			key=operator.itemgetter("name"),
+		)
+		eq_(len(uniques), len(reflected))
+
+		names_that_duplicate_index = set()
+		for orig, refl in zip(uniques, reflected):
+			# Different dialects handle duplicate index and constraints differently, so ignore this flag
+			dupe = refl.pop("duplicates_index", None)
+			if dupe:
+				names_that_duplicate_index.add(dupe)
+			eq_(refl.pop("comment", None), None)
+			# Following removal of comment key and duplicates_index key, original and reflected indexes should match...
+			eq_(orig, refl)
+
+		# Verify UCs using table reflection...
+		reflected_metadata = MetaData()
+		reflected = Table(
+			"testtbl",
+			reflected_metadata,
+			autoload_with=connection,
+			schema=schema,
+		)
+
+		# test "deduplicates for index" logic.   MySQL and Oracle
+		# "unique constraints" are actually unique indexes (with possible
+		# exception of a unique that is a dupe of another one in the case
+		# of Oracle).  make sure they aren't duplicated.
+
+		idx_names = {idx.name for idx in reflected.indexes}
+		uq_names = {
+			uq.name
+			for uq in reflected.constraints
+			if isinstance(uq, sa.UniqueConstraint)
+		}.difference(["unique_c_a_b"]) # exclude unique_c_a_b from the uq_names set.
+
+		# raise an assertion if they share any matching idx and uq names
+		assert not idx_names.intersection(uq_names)
+
+		if names_that_duplicate_index: 					# {'unique_a', 'i have spaces', 'unique_a_b_c', 'i.have.dots', 'unique_asc_key'}
+			eq_(names_that_duplicate_index, idx_names)
+			eq_(uq_names, set())						# Empty set vs empty set.
+
+		no_cst = self.tables.no_constraints.name
+		eq_(insp.get_unique_constraints(no_cst, schema=schema), [])
+
+
+
+
 
 # #     @testing.skip("access")
 # #     def test_not_existing_table(self):
