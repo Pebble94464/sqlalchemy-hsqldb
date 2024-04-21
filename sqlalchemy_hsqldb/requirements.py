@@ -545,8 +545,7 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def views(self):
         """Target database must support VIEWs."""
-
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def schemas(self):
