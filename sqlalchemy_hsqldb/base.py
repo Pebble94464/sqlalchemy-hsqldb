@@ -647,6 +647,73 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 		return " -- post_create_table "
 	# TODO: implement post_create_table or inherit from compiler.DDLCompiler
 
+
+	def visit_create_table(self, create, **kw):
+		table = create.element
+		preparer = self.preparer
+
+		text = "\nCREATE "
+
+		if table._prefixes:
+			text += " ".join(table._prefixes) + " "
+		# TODO: What are table prefixes? Are they similar to hsqldb_type?
+
+		hsqldb_type = table.dialect_options['hsqldb']['type']
+		# The line above generates an error... "sqlalchemy.exc.NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:hsqldb"
+		# It's because 'hsqldb.jaydebeapi' != 'hsqldb' when attempting to load the library; See: \sqlalchemy\util\langhelpers.py(~362)
+		if hsqldb_type is not None:
+			text += hsqldb_type + " "
+		# TODO: restrict hsqldb_type to valid types, e.g. [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
+
+		text += "TABLE "
+		if create.if_not_exists:
+			text += "IF NOT EXISTS "
+
+		text += preparer.format_table(table) + " "
+
+		create_table_suffix = self.create_table_suffix(table)
+		if create_table_suffix:
+			text += create_table_suffix + " "
+
+		text += "("
+
+		separator = "\n"
+
+		# if only one primary key, specify it along with the column
+		first_pk = False
+		for create_column in create.columns:
+			column = create_column.element
+			try:
+				processed = self.process(
+					create_column, first_pk=column.primary_key and not first_pk
+				)
+				if processed is not None:
+					text += separator
+					separator = ", \n"
+					text += "\t" + processed
+				if column.primary_key:
+					first_pk = True
+			except exc.CompileError as ce:
+				raise exc.CompileError(
+					"(in table '%s', column '%s'): %s"
+					% (table.description, column.name, ce.args[0])
+				) from ce
+
+		const = self.create_table_constraints(
+			table,
+			_include_foreign_key_constraints=create.include_foreign_key_constraints,  # noqa
+		)
+		if const:
+			text += separator + "\t" + const
+
+		text += "\n)%s\n\n" % self.post_create_table(table)
+		return text
+		# This method overrides the base method to allow us to specify hsqldb_type,
+  		# a table type such as [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
+		# The base method inserts table._prefixes, which hsqldb_type might
+		# duplicate the purpose of.
+		# TODO: review whether overriding visit_create_table is necessary.
+
 #i visit_check_constraint; ddl; pg
 	#- def visit_check_constraint(self, constraint, **kw): #- inherit from compiler.DDLCompiler
 	#- 	raise NotImplementedError('xxx: visit_check_constraint')
