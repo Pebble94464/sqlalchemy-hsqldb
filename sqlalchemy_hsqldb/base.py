@@ -1983,12 +1983,11 @@ class HyperSqlDialect(default.DefaultDialect):
 		"""
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
 		for row in cursorResult.all():
-			constraint_name = row._mapping['CONSTRAINT_NAME']
-			check_clause = row._mapping['CHECK_CLAUSE']
+			constraint_name = self.normalize_name(row._mapping['constraint_name'])
+			check_clause = self.normalize_name(row._mapping['check_clause'])
 			constraint = {
 				'name': constraint_name,
-				'sqltext': check_clause,
-				'dialect_options': {}
+				'sqltext': check_clause
 			}
 			reflectedCheckConstraint.append(constraint)
 		return reflectedCheckConstraint
