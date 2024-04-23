@@ -1626,7 +1626,12 @@ class HyperSqlDialect(default.DefaultDialect):
 			self.denormalize_name(table_name),
 			self.denormalize_name(schema)
 			))
-		for row in cursorResult.all():
+		
+		rows = cursorResult.all()
+		if len(rows) == 0:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+		
+		for row in rows:
 			# Note: row._mapping is using column names as keys and not the aliases defined in the query.
 			# 		row._mapping keys are lowercase if requires_name_normalize = True, or uppercase if False
 			col_name = self.normalize_name(row._mapping['column_name']) # str """column name"""
@@ -1729,10 +1734,17 @@ class HyperSqlDialect(default.DefaultDialect):
 		"""SELECT column_name from information_schema.system_primarykeys
 		WHERE table_schem = (?) AND table_name = (?)""",
 		(self.denormalize_name(schema), self.denormalize_name(table_name)))
+		all = cursorResult.scalars().all()
+		if len(all) == 0:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+
+		constrained_columns = list(map(self.normalize_name, all))
 		return {
-			"constrained_columns": cursorResult.scalars().all()
+			"name": None,
+			"constrained_columns": constrained_columns
 			#"dialect_options" : NotRequired[Dict[str, Any]] # Additional dialect-specific options detected for this primary key
 			}
+		# TODO:3: understand why test_get_pk_constraint fails when 'name' is set to pk_name.
 
 #i  def get_multi_pk_constraint(
 	# TODO: for better performance implement get_multi_pk_constraint. DefaultDialect's implementation is only adequate for now.
@@ -1757,7 +1769,12 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE fktable_schem = (?) AND fktable_name = (?)"""
 		cursorResult = connection.exec_driver_sql(query,
 			(self.denormalize_name(fktable_schem), self.denormalize_name(table_name)))
-		for row in cursorResult.all():
+		
+		rows = cursorResult.all()
+		if len(rows) == 0:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+		
+		for row in rows:
 			# Note row._mapping is using column names as keys and not the aliases defined in the query.
 			fk_name = self.normalize_name(row._mapping['fk_name'])
 			constrained_columns = self.normalize_name(row._mapping['fkcolumn_name'])
@@ -1891,7 +1908,11 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE table_name = (?)
 			AND table_schema = (?)
 		""", (self.denormalize_name(view_name), self.denormalize_name(schema)))
-		return cursorResult.scalar()
+		view_def = cursorResult.scalar()
+		if view_def:
+			return view_def
+		else:
+			raise exc.NoSuchTableError(f"{schema}.{view_name}" if schema else view_name)
 
 #i  def get_indexes(
 	@reflection.cache
@@ -1921,7 +1942,12 @@ class HyperSqlDialect(default.DefaultDialect):
 		"""
 		# TODO: removed commented out fields from above query.
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(schema), self.denormalize_name(table_name)))
-		for row in cursorResult.all():
+
+		rows = cursorResult.all()
+		if len(rows) == 0:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+		
+		for row in rows:
 			index_name = self.normalize_name(row._mapping['index_name'])
 			constraint_type = row._mapping['constraint_type'] # PRIMARY KEY | FOREIGN KEY | UNIQUE. If NULL, the index doesn't duplicate a constraint.
 
@@ -2014,8 +2040,13 @@ class HyperSqlDialect(default.DefaultDialect):
 			AND constraint_schema = (?)
 		"""
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
-		for row in cursorResult.all():
-			ct_name = index_name = row._mapping['CONSTRAINT_NAME']
+
+		rows = cursorResult.all()
+		if len(rows) == 0:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+		
+		for row in rows:
+			ct_name = index_name = self.normalize_name(row._mapping['constraint_name'])
 			ct = _getDictFromList('name', ct_name, reflectedUniqueConstraint)
 			if ct == None:
 				ct = {
@@ -2049,7 +2080,12 @@ class HyperSqlDialect(default.DefaultDialect):
 			AND table_schema = (?)
 		"""
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
-		for row in cursorResult.all():
+
+		rows = cursorResult.all()
+		if len(rows) == 0:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+		
+		for row in rows:
 			constraint_name = self.normalize_name(row._mapping['constraint_name'])
 			check_clause = self.normalize_name(row._mapping['check_clause'])
 			constraint = {
