@@ -2169,14 +2169,10 @@ class HyperSqlDialect(default.DefaultDialect):
 			AND table_schem = (?)
 		"""
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
-		comment = cursorResult.scalar()
-		if comment is not None:
-			return {"text": comment}
-		else:
-			return ReflectionDefaults.table_comment()
-	# The get_table_comment method currently returns a ReflectedTableComment object, regardless of whether the table exists or not.
-	# When a table doesn't exist we should be raising an exc.NoSuchTableError, so we know the table doesn't exist.
-	# TODO: Review all methods to ensure they raise an exception when tables don't exist.
+		row = cursorResult.first()
+		if not row:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
+		return {"text": row[0]}
 
 #i  def get_multi_table_comment(
 	# TODO: for better performance implement get_multi_table_comment.	

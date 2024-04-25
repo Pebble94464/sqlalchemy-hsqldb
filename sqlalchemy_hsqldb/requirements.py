@@ -661,13 +661,13 @@ class HyperSqlRequirements(SuiteRequirements):
     def reflect_tables_no_columns(self):
         """target database supports creation and reflection of tables with no
         columns, or at least tables that seem to have no columns."""
-
+		# Tables must have at least one column.
         return exclusions.closed()
 
     @property
     def comment_reflection(self):
         """Indicates if the database support table comment reflection"""
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def comment_reflection_full_unicode(self):
@@ -691,13 +691,15 @@ class HyperSqlRequirements(SuiteRequirements):
 
         """
         return self.views
+        # return exclusions.open() #- jsn1
     # Access returns exclusions.open()
 
     @property
     def view_reflection(self):
         """target database must support inspection of the full CREATE VIEW
         definition."""
-        return self.views
+        # return self.views
+        return exclusions.open() #- jsn1
 
     @property
     def schema_reflection(self):
