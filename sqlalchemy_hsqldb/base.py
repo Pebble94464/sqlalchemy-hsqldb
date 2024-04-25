@@ -2041,11 +2041,11 @@ class HyperSqlDialect(default.DefaultDialect):
 				ct = {
 					'name': ct_name, # ReflectedConstraint.name
 					'column_names': [],
-					'duplicates_index': index_name, # Assumed it's a duplicate because HSQLDB implicitly creates an index on creation of a unique constraint
-					'dialect_options': {}
+					'duplicates_index': index_name,
+					# 'dialect_options': {}
 				}
 				reflectedUniqueConstraint.append(ct)
-			column_name = row._mapping['COLUMN_NAME']
+			column_name = self.normalize_name(row._mapping['column_name'])
 			ct['column_names'].append(column_name)
 		return reflectedUniqueConstraint
 
