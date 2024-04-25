@@ -1620,6 +1620,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		
 		rows = cursorResult.all()
 		if len(rows) == 0:
+			# Tables must have at least one column otherwise they can't exist.
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 		
 		for row in rows:
@@ -1726,7 +1727,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		WHERE table_schem = (?) AND table_name = (?)""",
 		(self.denormalize_name(schema), self.denormalize_name(table_name)))
 		all = cursorResult.scalars().all()
-		if len(all) == 0:
+		if len(all) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 
 		constrained_columns = list(map(self.normalize_name, all))
@@ -1932,7 +1933,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(schema), self.denormalize_name(table_name)))
 
 		rows = cursorResult.all()
-		if len(rows) == 0:
+		if len(rows) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 		
 		for row in rows:
@@ -2030,7 +2031,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
 
 		rows = cursorResult.all()
-		if len(rows) == 0:
+		if len(rows) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 		
 		for row in rows:
@@ -2070,7 +2071,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
 
 		rows = cursorResult.all()
-		if len(rows) == 0:
+		if len(rows) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 		
 		for row in rows:
