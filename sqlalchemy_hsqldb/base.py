@@ -1826,7 +1826,7 @@ class HyperSqlDialect(default.DefaultDialect):
 			WHERE table_schema = (?)
 			AND table_type = 'BASE TABLE'
 		""", (self.denormalize_name(schema),))
-		return cursorResult.scalars().all()
+		return list(map(self.normalize_name, cursorResult.scalars().all()))
 
 #i  def get_temp_table_names( # Return a list of temporary table names on the given connection, if supported by the underlying backend.
 	@reflection.cache
