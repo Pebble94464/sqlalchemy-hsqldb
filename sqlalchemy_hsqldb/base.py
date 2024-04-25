@@ -642,10 +642,14 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 
 #i post_create_table; ddl; my; ora; pg
 	def post_create_table(self, table):
-		# Is this the place to implement the <collate clause>?
-		return " -- post_create_table "
-	# TODO: implement post_create_table or inherit from compiler.DDLCompiler
-
+		"""Build table-level CREATE options like ON COMMIT and COLLATE."""
+		table_opts = []
+		opts = table.dialect_options['hsqldb']
+		if opts['on_commit']:
+			on_commit_options = opts['on_commit'].replace('_', ' ').upper()
+			table_opts.append(' ON COMMIT %s' % on_commit_options)
+		return ' '.join(table_opts)
+	# TODO: Is this the place to implement the <collate clause>?
 
 	def visit_create_table(self, create, **kw):
 		table = create.element
@@ -1378,6 +1382,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		(schema.Table, {
 			"type": None,
 			#- Note the expected values for 'type' will be: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
+			#- Should 'GLOBAL TEMPORARY' be specified as a prefix instead? See CompileTest.test_table_options method in test_compiler.py
+			"on_commit": None,		# DELETE | PRESERVE | NULL
 		})
 	]
 	# Not yet fully implemented because we don't immediately know what the valid parameters will be.
