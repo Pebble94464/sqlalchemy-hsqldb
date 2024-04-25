@@ -2135,7 +2135,7 @@ class HyperSqlDialect(default.DefaultDialect):
 			# TODO: confirm all temporary types are treated as global temporary, and there's no other way to identify the different types of temporary table.
 		else:
 			# MEMORY | CACHED | TEXT
-			tableOptions[_table_type_key_name] = hsqldb_type
+			tableOptions['%s_%s' % (self.name, 'type')] = hsqldb_type
 		
 		# TODO: confirm using a single key is the correct approach.
 		# TODO: Additional settings for TEXT tables are configured separately. Consider exposing them here.
