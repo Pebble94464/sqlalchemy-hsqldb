@@ -212,6 +212,16 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 			expected,
 		)
 
+#- line 2104
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_multi_get_table_options_tables(self):
+		return
+
+#- line 2122
+	@testing.skip('hsqldb', reason='Not yet implemented')
+	def test_get_multi_table_comment(self):
+		return
+
 #- line 2188
 	@testing.skip('hsqldb', reason='Not yet implemented')
 	def test_get_multi_pk_constraint(self):
