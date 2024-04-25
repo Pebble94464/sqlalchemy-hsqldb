@@ -129,7 +129,6 @@ class HyperSqlBoolean(types.BOOLEAN):
 class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by colspecs
 	__visit_name__ = "_HyperBoolean"
 	#- def __init__(self):
-	#- 	print('_HyperBoolean.__init__()') #-
 
 	#- TODO: remove Oracle function below...
 	def get_dbapi_type_oracle(self, dbapi):
@@ -978,7 +977,6 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 #i _opt_encode; ms
 #i create_server_side_cursor; dec; my
 	def create_server_side_cursor(self):
-		print('### create_server_side_cursor') #-
 		if self.dialect.supports_server_side_cursors:
 			return self._dbapi_connection.cursor() # TODO: are any params required?
 		else:
@@ -1028,31 +1026,26 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 
 #i get_insert_default; dec; ms; pg
 	def get_insert_default(self, column):
-		print('### get_insert_default')
 		raise NotImplementedError()
 		return super().get_insert_default(column)
 
 #i get_lastrowid; dec; ms
 	def get_lastrowid(self):
-		print('### get_lastrowid')
 		raise NotImplementedError()
 		return super().get_lastrowid()	
 
 #i handle_dbapi_exception; ec; dec; ms
 	def handle_dbapi_exception(self, e):
 		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
-		print('### get_lastrowid')
 		return super().handle_dbapi_exception(e)
 
 #i post_exec; ec; dec; ms
 	def post_exec(self):
-		#- print('### post_exec')
 		super().post_exec()
 	# TODO: inherit if unused
 
 #i pre_exec; ec; dec; ms; ora
 	def pre_exec(self):
-		#- print('### pre_exec')
 		super().pre_exec()
 	# TODO: inherit if unused
 
@@ -1062,7 +1055,6 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 
 #i rowcount; dec; ms
 	def rowcount(self):
-		print('### pre_exec')
 		return super().rowcount()
 
 
@@ -1070,7 +1062,6 @@ class HyperSqlDialect(default.DefaultDialect):
 	"""HyperSqlDialect implementation of Dialect"""
 
 	def __init__(self, classpath=None, **kwargs):
-		#- super().__init__(**kwargs)
 		default.DefaultDialect.__init__(self, **kwargs)
 		self.classpath = classpath	# A path to the HSQLDB executable jar file.
 
@@ -1385,7 +1376,7 @@ class HyperSqlDialect(default.DefaultDialect):
 	construct_arguments = [
 		(schema.Index, {}),
 		(schema.Table, {
-			"type": None
+			"type": None,
 			#- Note the expected values for 'type' will be: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
 		})
 	]
@@ -1821,7 +1812,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		return reflectedForeignKeys
 
 #i  def get_multi_foreign_keys( # Return information about foreign_keys in all tables in the given ``schema``.
-	# TODO: for better performance implement get_multi_foreign_keys.
+	# TODO: for better performance implement get_multi_foreign_keys. (currently only impl. for Oracle and PostgreSQL dialects)
 
 #i  def get_table_names( # """Return a list of table names for ``schema``.
 	@reflection.cache
@@ -2029,7 +2020,7 @@ class HyperSqlDialect(default.DefaultDialect):
 			schema = self.default_schema_name
 		reflectedUniqueConstraint = []
 		query = """
-			SELECT constraint_name,  column_name FROM information_schema.table_constraints
+			SELECT constraint_name, column_name FROM information_schema.table_constraints
 			JOIN information_schema.system_indexinfo
 			ON index_name = constraint_name
 			WHERE constraint_type = 'UNIQUE'
@@ -2113,8 +2104,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		"""
 		cursorResult = connection.exec_driver_sql(query, (self.denormalize_name(table_name), self.denormalize_name(schema)))
 		row = cursorResult.first()
-		if not row and self.has_table(connection, table_name, schema) == False:
-			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)				
+		if not row:
+			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 		assert row is not None, 'Row is None.'
 
 		# table_name = row._mapping['TABLE_NAME']
@@ -2345,7 +2336,6 @@ class HyperSqlDialect(default.DefaultDialect):
 		:param connection: a :class:`_engine.Connection`.
 		:param xid: xid
 		"""
-		#- print(f'### do_prepare_twophase: xid={xid}') #-
 		pass
 
 #i def do_rollback_twophase(
@@ -2356,7 +2346,6 @@ class HyperSqlDialect(default.DefaultDialect):
 		:param is_prepared: whether or not :meth:`.TwoPhaseTransaction.prepare` was called.
 		:param recover: if the recover flag was passed.
 		"""
-		#- print(f'### do_rollback_twophase: is_prepared={is_prepared}, recover={recover}') #-
 		self.do_rollback(connection.connection)
 
 #i  def do_commit_twophase(
@@ -2368,7 +2357,6 @@ class HyperSqlDialect(default.DefaultDialect):
 		:meth:`.TwoPhaseTransaction.prepare` was called.
 		:param recover: if the recover flag was passed.
 		"""
-		#- print(f'### do_commit_twophase: xid={xid}, is_prepared={is_prepared}, recover={recover}') #-
 		if not is_prepared:
 			self.do_prepare_twophase(connection, xid)
 		self.do_commit(connection.connection)
@@ -2378,7 +2366,6 @@ class HyperSqlDialect(default.DefaultDialect):
 		"""Recover list of uncommitted prepared two phase transaction identifiers on the given connection.
 		:param connection: a :class:`_engine.Connection`.
 		"""
-		#- print(f'### do_recover_twophase') #-
 		raise NotImplementedError("Recover two phase query for HyperSqlDialect not implemented.")
 
 # TODO: fully implement and test the five methods above for two-phase transactions. For more info see JSN_notes.md and scratch_twophase.py
@@ -2413,10 +2400,6 @@ class HyperSqlDialect(default.DefaultDialect):
 
 		# Log unhandled exceptions...
 		if True or isinstance(e, (self.dbapi.Error, self.dbapi.Warning)): # TODO: remove 'True or'
-			print('### is_disconnect')
-			print('### connection is None: ', connection == None)
-			print('### type(e): ', type(e))
-			print('### repr(e): ', repr(e))
 			raise NotImplementedError('Update is_disconnect to ')
 			return True
 		# TODO: Remove the above test
@@ -2433,7 +2416,6 @@ class HyperSqlDialect(default.DefaultDialect):
 	def on_connect_url(self, url):
 		from sqlalchemy.engine.url import URL
 		isolation_level = url.query.get('isolation_level', None)
-		print('### connect_args: ', repr(url.translate_connect_args())) #- e.g. {'host': 'localhost', 'database': 'test2', 'username': 'SA', 'port': 9001}
 		def do_on_connect(conn):
 			if isolation_level:
 				self.set_isolation_level(conn, isolation_level)
