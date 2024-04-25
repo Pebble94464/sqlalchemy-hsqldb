@@ -2118,7 +2118,7 @@ class HyperSqlDialect(default.DefaultDialect):
 		# table_name = row._mapping['TABLE_NAME']
 		table_type = row._mapping['table_type']			# GLOBAL TEMPORARY | more...
 		hsqldb_type = row._mapping['hsqldb_type']		# MEMORY | CACHED | TEXT
-		commit_action = row._mapping['commit_action']  	# DELETE | PRESERVE | NULL
+		on_commit = row._mapping['commit_action']  	# DELETE | PRESERVE | NULL
 
 		# The table type options in HSQLDB are: [MEMORY | CACHED | [GLOBAL] TEMPORARY | TEMP | TEXT ]
 
@@ -2146,8 +2146,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		# TODO: confirm using a single key is the correct approach.
 		# TODO: Additional settings for TEXT tables are configured separately. Consider exposing them here.
 
-		if commit_action != None:
-			tableOptions['commit_action'] = commit_action
+		if on_commit != None:
+			tableOptions['%s_%s' % (self.name, 'on_commit')] = on_commit # DELETE | PRESERVE | NULL
 
 		return tableOptions
 		# TODO: Document the TableOptions attributes defined in get_table_options
