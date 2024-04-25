@@ -1771,7 +1771,7 @@ class HyperSqlDialect(default.DefaultDialect):
 			(self.denormalize_name(fktable_schem), self.denormalize_name(table_name)))
 		
 		rows = cursorResult.all()
-		if len(rows) == 0:
+		if len(rows) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 		
 		for row in rows:
@@ -1779,9 +1779,6 @@ class HyperSqlDialect(default.DefaultDialect):
 			fk_name = self.normalize_name(row._mapping['fk_name'])
 			constrained_columns = self.normalize_name(row._mapping['fkcolumn_name'])
 
-			# If the schema specified was None, we set referred_schema to None
-			# and ignore the schema in pktable_schem.
-			# (Not confident it's correct but implemented this way to pass ComponentReflectionTest::test_get_foreign_keys)
 			if schema == None:
 				referred_schema = None
 			else:
