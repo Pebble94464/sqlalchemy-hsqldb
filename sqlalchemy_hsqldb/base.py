@@ -2269,7 +2269,7 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
 	def do_begin(self, dbapi_connection):
-		print('### This message is being displayed by the HyperSqlDialect.do_begin method')
+		return super().do_begin(dbapi_connection)
 	# TODO: inherit from default dialect, i.e. just comment out this implementation
 
 #i  def do_begin(self, dbapi_connection: PoolProxiedConnection) -> None:
