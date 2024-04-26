@@ -1753,10 +1753,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		fktable_schem = schema or self.default_schema_name
 		reflectedForeignKeys = []
-		# Order is important. Ensure the first field in our query is key_seq.
 		query = """
 			SELECT
-			key_seq,
 			fk_name,
 			fkcolumn_name AS constrained_columns,
 			pktable_schem AS referred_schema,
@@ -1766,7 +1764,8 @@ class HyperSqlDialect(default.DefaultDialect):
 			delete_rule,
 			deferrability
 			FROM information_schema.system_crossreference
-			WHERE fktable_schem = (?) AND fktable_name = (?)"""
+			WHERE fktable_schem = (?) AND fktable_name = (?)
+			ORDER BY key_seq ASC"""
 		cursorResult = connection.exec_driver_sql(query,
 			(self.denormalize_name(fktable_schem), self.denormalize_name(table_name)))
 		
@@ -1774,7 +1773,6 @@ class HyperSqlDialect(default.DefaultDialect):
 		if len(rows) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
 
-		rows = sorted(rows) # Order by the first element, 'key_seq'
 		for row in rows:
 			# Note row._mapping is using column names as keys and not the aliases defined in the query.
 			fk_name = self.normalize_name(row._mapping['fk_name'])
