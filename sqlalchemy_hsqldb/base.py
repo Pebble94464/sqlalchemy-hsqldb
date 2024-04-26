@@ -1753,8 +1753,10 @@ class HyperSqlDialect(default.DefaultDialect):
 		self._ensure_has_table_connection(connection)
 		fktable_schem = schema or self.default_schema_name
 		reflectedForeignKeys = []
+		# Order is important. Ensure the first field in our query is key_seq.
 		query = """
 			SELECT
+			key_seq,
 			fk_name,
 			fkcolumn_name AS constrained_columns,
 			pktable_schem AS referred_schema,
@@ -1771,7 +1773,8 @@ class HyperSqlDialect(default.DefaultDialect):
 		rows = cursorResult.all()
 		if len(rows) == 0 and self.has_table(connection, table_name, schema) == False:
 			raise exc.NoSuchTableError(f"{schema}.{table_name}" if schema else table_name)
-		
+
+		rows = sorted(rows) # Order by the first element, 'key_seq'
 		for row in rows:
 			# Note row._mapping is using column names as keys and not the aliases defined in the query.
 			fk_name = self.normalize_name(row._mapping['fk_name'])
