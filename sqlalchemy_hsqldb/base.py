@@ -195,7 +195,7 @@ class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by
 class TIMESTAMP(sqltypes.TIMESTAMP):
 	__visit_name__ = 'TIMESTAMP'
 
-	def __init__(self, timezone: bool = False):
+	def __init__(self, timezone: bool = False, precision: Optional[int] = None):
 		"""
 		Construct a new :class:`_hsqldb.TIMESTAMP`.
 		:param timezone: boolean.  Indicates that the TIMESTAMP type should
@@ -204,7 +204,7 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 		# TODO: update description above
 		print('### hsqldb TIMESTAMP constructor') #-
 		super().__init__(timezone=timezone)
-
+	# TODO: implement support for 'precision'. Defaults to 6 for timestamps.
 	#- Note that none of the other dialects define a bind or results processor for TIMESTAMP.
 
 	def bind_processor(self, dialect):
