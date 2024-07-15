@@ -867,8 +867,8 @@ class HyperSqlRequirements(SuiteRequirements):
         literal string, e.g. via the TypeEngine.literal_processor() method.
 
         """
-
-        return exclusions.closed()
+        #- return exclusions.closed() # jsn: currently working on DateTime. Quick check to see if datetime_literals work.
+        return exclusions.open()
 
     @property
     def datetime(self):

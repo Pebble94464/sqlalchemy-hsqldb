@@ -39,8 +39,9 @@ setup(
     # Specify entry points...
     entry_points={
         "sqlalchemy.dialects": [
+            "hsqldb = sqlalchemy_hsqldb.jaydebeapi:HyperSqlDialect_jaydebeapi",
             "hsqldb.jaydebeapi = sqlalchemy_hsqldb.jaydebeapi:HyperSqlDialect_jaydebeapi"
-            # "<dialect.driver> = <sqlalchemy_dialect.driver>:<dialect driver class"
+            # "<dialect.driver> = <sqlalchemy_dialect.driver>:<dialect driver class>"
         ]
     },
 )

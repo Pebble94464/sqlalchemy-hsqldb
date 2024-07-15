@@ -42,7 +42,11 @@ base.dialect = dialect = jaydebeapi.dialect
 
 The built-in dialects set this, but the Access dialect doesn't.
 Is 'dialect' actually declared anywhere in base.py? Can't find it.
+
+Update: recently defined 'dialect' at the bottom of jaydebeapi.py.
 """
+base.dialect = dialect = jaydebeapi.dialect
+
 
 # TODO: Set __version__ if required
 """
@@ -52,3 +56,13 @@ Only the Acccess dialect seems to set its version here.
 Remove if unused.
 """
 
+# The registry module provides a means of installing dialect entrypoints without the use of setuptools
+from sqlalchemy.dialects import registry
+registry.register(
+	"hsqldb.jaydebeapi", "sqlalchemy_hsqldb.jaydebeapi", "HyperSqlDialect_jaydebeapi"
+)
+# The three lines above are identical to those found in conftest.py,
+# and very similar to what's found in the __init__.py for Access.
+# Up until now we've been relying on the PluginLoader class in langhelpers.py,
+# which I believe makes use of the entry points defined in setup.py
+# TODO: review if we really need to register here, or can this be removed?

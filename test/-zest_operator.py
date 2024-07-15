@@ -6,6 +6,10 @@ sqlalchemy/README.dialects.rst mentions dialect specific tests.
 This file appears to be one such test, copied from sqlalchemy-access
 
 TODO: Remove this file if unused.
+
+NOTE: This test fails against HSQLDB. The filename will be temporarily changed to hide it,
+		but has not been deleted yet because the file might be needed as a template for
+        new tests later on.
 """
 
 from sqlalchemy import testing, Table, Column, Integer

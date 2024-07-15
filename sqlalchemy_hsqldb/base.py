@@ -1,4 +1,47 @@
 
+r"""
+
+TODO: like pg, hsqldb implicitly creates unique constraints. Document it here, similar to pg's below...
+.. _postgresql_index_reflection:
+
+#- line 1074
+PostgreSQL Index Reflection
+---------------------------
+
+The PostgreSQL database creates a UNIQUE INDEX implicitly whenever the
+UNIQUE CONSTRAINT construct is used.   When inspecting a table using
+:class:`_reflection.Inspector`, the :meth:`_reflection.Inspector.get_indexes`
+and the :meth:`_reflection.Inspector.get_unique_constraints`
+will report on these
+two constructs distinctly; in the case of the index, the key
+``duplicates_constraint`` will be present in the index entry if it is
+detected as mirroring a constraint.   When performing reflection using
+``Table(..., autoload_with=engine)``, the UNIQUE INDEX is **not** returned
+in :attr:`_schema.Table.indexes` when it is detected as mirroring a
+:class:`.UniqueConstraint` in the :attr:`_schema.Table.constraints` collection
+.
+
+TODO: table options, like postgre...
+
+#- line 1109
+PostgreSQL Table Options
+------------------------
+
+Several options for CREATE TABLE are supported directly by the PostgreSQL
+dialect in conjunction with the :class:`_schema.Table` construct:
+
+* ``ON COMMIT``::
+
+    Table("some_table", metadata, ..., postgresql_on_commit='PRESERVE ROWS')
+
+
+
+
+
+"""
+
+
+
 # "base.py defines the specific SQL dialect used by that database"
 # [New Dialect System](https://docs.sqlalchemy.org/en/20/changelog/migration_06.html)
 
@@ -9,8 +52,18 @@
 # TODO: prefer org.hsqldb.jdbc.JDBCConnection methods over executing SQL strings. Rewrite functions as necessary.
 # TODO: prefer JayDeBeApi Connection methods over JDBCConnection methods
 # TODO: Ensure dialect methods aren't prematurely closing connections.
+# TODO: Dialect specific documentation, along the lines of those found at https://docs.sqlalchemy.org/en/20/dialects/
+# TODO: Estimate project completion and maintenance costs. Include a count of TODOs.
 
 import pdb
+
+#from jpype.dbapi2 import Date as
+#-import jpype # 
+from jpype import JClass
+import jpype.dbapi2 as jdbapi
+import datetime
+dt = datetime # An alias for datetime. TODO: import datetime as dt
+# 
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
@@ -23,6 +76,11 @@ from sqlalchemy import schema
 from sqlalchemy import BindTyping
 from sqlalchemy import util
 from sqlalchemy import exc
+from sqlalchemy.schema import UniqueConstraint
+
+from sqlalchemy import schema
+from sqlalchemy.ext.compiler import compiles
+
 
 from sqlalchemy.sql.compiler import InsertmanyvaluesSentinelOpts
 # TODO: remove InsertmanyvaluesSentinelOpts and all other unused imports
@@ -134,6 +192,196 @@ class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by
 	def get_dbapi_type_oracle(self, dbapi):
 		return dbapi.NUMBER
 
+class TIMESTAMP(sqltypes.TIMESTAMP):
+	__visit_name__ = 'TIMESTAMP'
+
+	def __init__(self, timezone: bool = False):
+		"""
+		Construct a new :class:`_hsqldb.TIMESTAMP`.
+		:param timezone: boolean.  Indicates that the TIMESTAMP type should
+		use HyperSQL's ``TIMESTAMP WITH TIME ZONE`` datatype.
+		"""
+		# TODO: update description above
+		print('### hsqldb TIMESTAMP constructor') #-
+		super().__init__(timezone=timezone)
+
+	#- Note that none of the other dialects define a bind or results processor for TIMESTAMP.
+
+	def bind_processor(self, dialect):
+		#- used when sending data to the db.
+		print('### hsqldb TIMESTAMP bind_processor') #-
+
+		if self.timezone == False:
+			return self._bind_processor_timestamp
+		else:
+			return self._bind_processor_offsetdatetime
+
+	def _bind_processor_timestamp(self, value):
+		if type(value) != datetime.datetime:
+			return None
+		year = value.year - 1900
+		month = value.month - 1
+		day = value.day
+		hour = value.hour
+		minute = value.minute
+		second = value.second
+		nano = value.microsecond * 1000
+		JTimestamp = JClass('java.sql.Timestamp', False)
+		return JTimestamp(year, month, day, hour, minute, second, nano)
+
+	def _bind_processor_offsetdatetime(self, value):
+		if type(value) != datetime.datetime:
+			return None
+		year = value.year
+		month = value.month
+		day = value.day
+		hour = value.hour
+		minute = value.minute
+		second = value.second
+		nano = value.microsecond * 1000
+		timedelta = value.tzinfo.utcoffset(None)
+		JOffsetDateTime = JClass('java.time.OffsetDateTime', False)
+		#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html
+		JZoneOffset = JClass('java.time.ZoneOffset')
+		#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
+		return JOffsetDateTime.of(year, month, day, hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
+
+	def result_processor(self, dialect, coltype):
+		#- used when retrieving data from the db
+		print('### TIMESTAMP result_processor') #-
+
+		if 'TIMESTAMP_WITH_TIMEZONE' in coltype.values:
+			# <java class 'java.time.OffsetDateTime'>
+			# TODO:3: Can we compare using the type's numerical value (2014) instead of its string?
+			return self._java_time_offsetdatetime_TO_datetime
+		else:
+			# <java class 'java.sql.Timestamp'>
+			return self._java_sql_datetime_TO_datetime
+
+	def _java_time_offsetdatetime_TO_datetime(self, value):
+		"""Convert java.time.OffsetDateTime to datetime.datetime"""
+		print('### _java_time_offsetdatetime_TO_datetime') #-
+		year = value.getYear()
+		month = value.getMonthValue()
+		day = value.getDayOfMonth()
+		hour = value.getHour()
+		minute = value.getMinute()
+		second = value.getSecond()
+		microsecond = int(value.getNano() / 1000)
+		zone_offset = value.getOffset() # <java class 'java.time.ZoneOffset'>
+		offset_seconds = zone_offset.getTotalSeconds()
+		tzinfo1 = dt.timezone(dt.timedelta(seconds=offset_seconds))
+		return dt.datetime(year, month, day, hour, minute, second, microsecond, tzinfo=tzinfo1)
+	# TODO: This conversion function is fairly generic. Consider making it global instead of a class member function. Is it used elsewhere?
+
+	def _java_sql_datetime_TO_datetime(self, value):
+		"""Convert java.sql.datetime to datetime.datetime"""
+		print('### _java_sql_datetime_TO_datetime') #-
+		year = value.getYear() + 1900
+		month = value.getMonth() + 1
+		day = value.getDate()
+		hours = value.getHours()
+		minutes = value.getMinutes()
+		seconds = value.getSeconds()
+		microseconds = int(value.getNanos() / 1000)
+		return dt.datetime(year, month, day, hours, minutes, seconds, microseconds)
+	# TODO: This conversion function is fairly generic. Consider making it global instead of a class member function. Is it used elsewhere?
+
+
+class _Date(sqltypes.Date):
+	#- Stays private to the dialect because it is named with an underscore.
+	#- Will be invoked via the colspecs dictionary only. 
+	#- Named using camel case because it extends a generic type.
+	__visit_name__ = "DATE"
+
+#- see line 1282 for get_result_processor
+	def result_processor(self, dialect, coltype):
+		print('### _Date result_processor 2')
+		print('### type coltype: ', type(coltype)) #- <class 'jaydebeapi.DBAPITypeObject'>
+		print('### repr coltype: ', repr(coltype)) #- DBAPITypeObject('DATE')
+		breakpoint() #-
+		def process(value):
+			assert str(value.__class__) == "<java class 'java.sql.Date'>", 'Expecting a java.sql.Date object'
+			year = value.getYear() + 1900
+			month = value.getMonth() + 1
+			day = value.getDate()
+			return dt.date(year, month, day)
+		return process
+# """
+# # WIP: 2024-07-03
+# jaydebeapi_hsqldb.py contains some redefined conversion functions.
+# These were copied into jaydebeapi.py, and are assigned to _DEFAULT_CONVERTERS
+# inside the import_dbapi method.
+
+# The new conversion functions should actually only return the java objects,
+# not convert values to datetime objects.
+
+# The conversion of java objects too datetime objects belongs in the 'process'
+# methods of each type, as the one defined above for class _Date.
+
+# TODO: update all conversion methods in jaydebeapi_hsqldb.py to return java objects, not datetime objects.
+# TODO: Transfer the logic contained in those conversion functions in to the 'process' methods for each type.
+# TODO: But first... transfer the *_WITH_TIMEZONE types and ensure they're working as expected
+# """
+
+
+	def bind_processor(self, dialect):
+		def processor(value):
+			if type(value) == datetime.date:
+				return jdbapi.Date(value.year, value.month, value.day)
+			else:
+				return value
+		return processor
+
+# str No matching overloads found for org.hsqldb.jdbc.JDBCPreparedStatement.setObject(int,datetime.date), options are:
+# 	public synchronized void org.hsqldb.jdbc.JDBCPreparedStatement.setObject(int,java.lang.Object) throws java.sql.SQLException
+
+
+
+
+	def literal_processor(self, dialect):
+		print('### _Date literal_processor')
+		return super().literal_processor(dialect)
+
+class _DateTime(sqltypes.DateTime):
+	__visit_name__ = "DATETIME"
+
+	def result_processor(self, dialect, coltype):
+		print('### _DateTime result_processor')
+		return super().result_processor(dialect, coltype)
+
+	def bind_processor(self, dialect):
+		print('### _DateTime bind_processor')
+		breakpoint() #-
+		return super().bind_processor(dialect)
+
+	def literal_processor(self, dialect):
+		print('### _DateTime literal_processor')
+		return super().literal_processor(dialect)
+
+
+# Oracle's TIMESTAMP class below... TODO: remove or adapt
+class TIMESTAMP_oracle(sqltypes.TIMESTAMP):
+	"""Oracle implementation of ``TIMESTAMP``, which supports additional
+	Oracle-specific modes
+	.. versionadded:: 2.0
+	"""
+	def __init__(self, timezone: bool = False, local_timezone: bool = False):
+		"""Construct a new :class:`_oracle.TIMESTAMP`.
+		:param timezone: boolean.  Indicates that the TIMESTAMP type should
+		use Oracle's ``TIMESTAMP WITH TIME ZONE`` datatype.
+		:param local_timezone: boolean.  Indicates that the TIMESTAMP type
+		should use Oracle's ``TIMESTAMP WITH LOCAL TIME ZONE`` datatype.
+		"""
+		if timezone and local_timezone:
+			raise exc.ArgumentError(
+				"timezone and local_timezone are mutually exclusive"
+			)
+		super().__init__(timezone=timezone)
+		self.local_timezone = local_timezone
+
+
+
 
 # WIP: what are colspecs?
 #		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
@@ -157,6 +405,15 @@ colspecs = {
 	# sqltypes.LargeBinary: JDBCBlobClient,
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
+	sqltypes.Date: _Date,
+
+	# sqltypes.DateTime: _DateTime,
+	# ^^^ When colspecs contains an entry for DateTime it seems to prevent
+	#     the TIMESTAMP constructor and bind_processor from working.
+	# class _DateTime doesn't currently add any extra functionality. It's just displaying debug info at the mo. 
+	# TODO: Remove _DateTime if unused.
+
+	# sqltypes.TIMESTAMP: TIMESTAMP, # 
 
 	# sqltypes.BLOB: JDBCBlobClient,
 	# sqltypes.BINARY: JDBCBlobClient2,
@@ -209,6 +466,17 @@ ischema_names = {
 	"INTEGER": sqltypes.INTEGER,
 	"NUMERIC": sqltypes.NUMERIC,
 	"VARCHAR": sqltypes.VARCHAR,
+
+# WIP: -->
+	"DATE": sqltypes.DATE,
+	#- "java.lang.Date": sqltypes.DATE,
+	#- "DATE": _Date,
+
+	# Copied from Oracle...
+	"TIMESTAMP": TIMESTAMP,  # TIMESTAMP or DATETIME?
+	"TIMESTAMP WITH TIME ZONE": TIMESTAMP,
+	# "INTERVAL DAY TO SECOND": INTERVAL,
+
 }
 
 
@@ -246,8 +514,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i _render_json_extract_from_binary; ms; my
 
 #i _row_limit_clause; sql; ms; ora
-	def _row_limit_clause(self, cs, **kwargs):
-		raise NotImplementedError('xxx: _row_limit_clause')
+	#- def _row_limit_clause(self, cs, **kwargs):
+	#- 	raise NotImplementedError('xxx: _row_limit_clause')
 	# The base impl calls fetch clause or limit clause.
 	# TODO: Unsure why this function has been stubbed. remove it?
 
@@ -315,9 +583,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	def get_from_hint_text(self, table, text):
 		raise NotImplementedError('xxx: get_from_hint_text')
 
-#i get_render_as_alias_suffix; sql; ora
-	def get_render_as_alias_suffix(self, alias_name_text):
-		raise NotImplementedError('xxx: get_render_as_alias_suffix')
+#i get_render_as_alias_suffix; sql; ora # inherit
+	#- def get_render_as_alias_suffix(self, alias_name_text):
+	#- 	raise NotImplementedError('xxx: get_render_as_alias_suffix')
 
 #i get_select_hint_text; sql; ora
 	def get_select_hint_text(self, byfroms):
@@ -347,8 +615,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		return text
 
 #i order_by_clause; sql; ms
-	def order_by_clause(self, select, **kw):
-		raise NotImplementedError('xxx: order_by_clause')
+	#- def order_by_clause(self, select, **kw): # Inherit from compiler.SQLCompiler
+	#- 	raise NotImplementedError('xxx: order_by_clause')
 
 #i render_bind_cast; sql; pg
 	def render_bind_cast(self, type_, dbapi_type, sqltext):
@@ -386,9 +654,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i visit_aggregate_order_by; pg
 #i visit_aggregate_strings_func; ms; my; ora; pg
 
-#i visit_alias; sql; ms
-	def visit_alias(self, alias, asfrom=False, ashint=False, iscrud=False, fromhints=None, subquery=False, lateral=False, enclosing_alias=None, from_linter=None, **kwargs, ):
-		raise NotImplementedError('xxx: visit_alias')
+#i visit_alias; sql; ms # inherit
+	#- def visit_alias(self, alias, asfrom=False, ashint=False, iscrud=False, fromhints=None, subquery=False, lateral=False, enclosing_alias=None, from_linter=None, **kwargs, ):
+	#- 	raise NotImplementedError('xxx: visit_alias')
 
 #i visit_array; pg
 
@@ -732,28 +1000,118 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 			generated.sqltext, include_table=False, literal_binds=True
 		)
 
+
+# WIP: index to unique constraint -->
+	# @compiles(schema.CreateColumn)
+	# def compile(element, compiler, **kw):
+	# 	pass
+
+# # class CreateIndex(_CreateBase):
+# #     """Represent a CREATE INDEX statement."""
+# #     __visit_name__ = "create_index"
+# #     def __init__(self, element, if_not_exists=False):
+ 
+	@compiles(schema.CreateIndex, 'hsqldb')
+	def _compile_create_index(createIndexObj, compiler, **kw):
+		index = createIndexObj.element
+		if index.unique == True and False:
+			# Unique indexes are deprecated in HSQLDB since version 1.8,
+			# so we need to generate DDL for a unique constraint instead.
+
+			uc = UniqueConstraint(index.columns, name=index.name, _column_flag=False)
+			raise exc.CompilerError('Unique indexes are deprecated. Use a unique constraint instead.')
+
+			raise NotImplementedError
+			return compiler.visit_add_constraint(uc, **kw)
+
+			# index.table.append_constraint(uc)
+			return compiler.visit_create_unique_index(index, **kw) # This to create a unique constraint
+			# Don't add a UniqueConstraint to the metadata because that could cause other DBMSs to generate a UC.
+			return compiler.visit_unique_constraint(index, **kw) #- failed
+		else:
+			return compiler.visit_create_index(createIndexObj, **kw)
+
+#- signature of visit_create index...
+#def visit_create_index(self, create, include_schema=False, include_table_schema=True, **kw):
+
+	#- @compiles(schema.Index, 'hsqldb')
+	#- def _compile_index(element, compiler, **kw):
+	#- 	return compiler.visit_index(element, **kw) # returns index name
+	#- TODO: remove
+
 #i visit_create_index; ddl; ms; my; ora; pg
 	def visit_create_index(self, create, include_schema=False, include_table_schema=True, **kw):
 		index = create.element
 		self._verify_index_table(index)
 		preparer = self.preparer
-		if index.name is None:
-			raise exc.CompileError("CREATE INDEX requires an index name.")
-		text = "CREATE INDEX "
-		if create.if_not_exists:
-			text += "IF NOT EXISTS "
-		text += "%s ON %s (%s)" % (
-			self._prepared_index_name(index, include_schema=include_schema),
-			preparer.format_table(index.table, use_schema=include_table_schema),
-			", ".join(
-				self.sql_compiler.process(
-					expr, include_table=False, literal_binds=True
-				)
-				for expr in index.expressions
-			),
-		)
-		return text
-		# Support for the ASC|DESC option not implemented because it has no effect.
+
+# WIP: index to unique constraint -->
+		# Index('users_t_idx',
+		# 	Column('test1', CHAR(length=5), table=<users>, nullable=False), 
+		# 	Column('test2', Float(), table=<users>, nullable=False),
+		# 	unique=True)
+		if index.unique == True and False: # temporarily disabled with False
+			# Add a table-level UNIQUE constraint...
+			table = index.table
+			table.indexes.remove(index)
+			# index.drop(bind=engine)
+			# uc = UniqueConstraint((index.expressions), name=index.name)
+			uc = UniqueConstraint(index.columns, name=index.name)
+			table.append_constraint(uc)
+			# schema.Index("users_t_idx", users.c.test1, users.c.test2, unique=True)
+
+			# # # index.table.append_constraint(
+			# # # 	schema.UniqueConstraint(
+			# # # 		# *columns: _DDLColumnArgument,
+			# # # 		index.columns,
+			# # # 		# # ", ".join(
+			# # # 		# # 	self.sql_compiler.process(
+			# # # 		# # 		expr, include_table=False, literal_binds=True
+			# # # 		# # 	)
+			# # # 		# # 	for expr in index.expressions
+			# # # 		# # ),
+
+			# # # 		# name: _ConstraintNameArgument = None,
+			# # # 		self._prepared_index_name(index, include_schema=include_schema),
+
+			# # # 		# deferrable: Optional[bool] = None,
+			# # # 		# initially: Optional[str] = None,
+			# # # 		# info: Optional[_InfoType] = None,
+			# # # 		# _autoattach: bool = True,
+			# # # 		# _column_flag: bool = False,
+			# # # 		# _gather_expressions: Optional[List[_DDLColumnArgument]] = None,
+			# # # 		# **dialect_kw: Any
+			# # # 	)
+			# # # )
+			# create a unique constraint instead, ALTER TABLE t ADD CONSTRAINT cst UNIQUE (num)
+			# # text = "ALTER TABLE t ADD CONSTRAINT cst UNIQUE (num)"
+			# Is there already a method for adding constraints?
+			# 	Yes, visit_unique_constraint(), but this skips 'ALTER TABLE' and starts with 'CONSTRAINT'.
+			# 
+# WIP: add unique constraint  -->
+			return None
+		else:
+			if index.name is None:
+				raise exc.CompileError("CREATE INDEX requires an index name.")
+			text = "CREATE INDEX "
+			if create.if_not_exists:
+				text += "IF NOT EXISTS "
+			text += "%s ON %s (%s)" % (
+				self._prepared_index_name(index, include_schema=include_schema),
+				preparer.format_table(index.table, use_schema=include_table_schema),
+				", ".join(
+					self.sql_compiler.process(
+						expr, include_table=False, literal_binds=True
+					)
+					for expr in index.expressions
+				),
+			)
+			return text
+			# Support for the ASC|DESC option not implemented because specifying
+			# the sort order for indexes has no effect in HSQLDB. The asc_or_desc
+   			# column is always set to 'A'.
+			# TODO: Is there a case for spoofing the setting, for example to preserve the sort order between DBs?
+			# TODO: Consider raising an error when desc() is called. 
 
 #i visit_create_sequence; ddl; ms; pg
 	def visit_create_sequence(self, create, **kw):
@@ -891,6 +1249,13 @@ class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
 		# This function gets called for Boolean and BOOLEAN, but duplicates the default BOOLEAN behaviour, so remove it.
 		return _HyperBoolean.__visit_name__
 
+	def visit_TIMESTAMP(self, type_, **kw):
+		if type_.timezone == True:
+			return "TIMESTAMP WITH TIME ZONE"
+		else:
+			return "TIMESTAMP"
+
+
 # WIP: HyperSqlIdentifierPreparer -->
 # TODO: Implement HyperSqlIdentifierPreparer. About 20-55 lines, 2-5 methods.
 class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
@@ -962,6 +1327,51 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 		assert False, 'Does a HyperSqlExecutionContext object get instantiated?'
 	# TODO: remove __init__ method if this class is never instantiated.
 
+#j create_server_side_cursor ; dec ; my ; my_ma ; pgc ; pg_a ; pg_pg8 ; sl_a
+	def create_server_side_cursor(self):
+		print('### HyperSqlexecutionContext.create_server_side_cursor') #-
+		if self.dialect.supports_server_side_cursors:
+			return self._dbapi_connection.cursor() # TODO: are any params required?
+		else:
+			raise NotImplementedError()
+	# TODO: Should this function exist here or in HyperSqlExecutionContext_jaydebeapi?
+
+#j fire_sequence ; ec ; ms ; my ; o ; pg
+	def fire_sequence(self, seq, type_):
+		"""given a :class:`.Sequence`, invoke it and return the next int value"""
+		raise NotImplementedError
+
+#j get_insert_default ; dec ; ms ; pg
+	def get_insert_default(self):
+		raise NotImplementedError
+
+#j get_lastrowid ; dec ; a ; ms ; my_ma ; my_py
+	def get_lastrowid(self):
+		raise NotImplementedError
+
+#j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
+	def handle_dbapi_exception(self):
+		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
+		raise NotImplementedError
+
+#j post_exec ; ec ; dec ; ms ; ms_py ; my_ma ; o_cx ; pgc_p2
+	def post_exec(self):
+		# print('### HypereSqlExecutionContext.post_exec') #-
+		super().post_exec()
+	# TODO: just inherit if unused
+
+#j pre_exec ; ec ; dec ; ms ; ms_py ; o ; o_cx ; pg_a ; pg_pg8
+	def pre_exec(self):
+		# print('### HypereSqlExecutionContext.pre_exec') #-
+		super().pre_exec()
+	# TODO: inherit if unused
+
+#j rowcount ; dec ; ms ; my_ma ; my_my
+	def rowcount(self):
+		return super().rowcount()
+	# TODO: just inherit if unused
+
+# TODO: remove lines begining with '#j'. These lines list commonly overriden execution context functions
 	"""
 	https://docs.sqlalchemy.org/en/14/core/internals.html
 	default.DefaultExecutionContext derives from an ExecutionContext.
@@ -976,90 +1386,24 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	mysql		20
 	oracle		27
 	pg			54
+
+	Each dialect specialises DefaultExecutionContext,
+	and each dialect connector then specialises further. See...
+		jaydebeapi.py:
+			class HyperSqlExecutionContext_jaydebeapi(HyperSqlDialect.HyperSqlExecutionContext):
+
 	"""
-
-#i _opt_encode; ms
-#i create_server_side_cursor; dec; my
-	def create_server_side_cursor(self):
-		if self.dialect.supports_server_side_cursors:
-			return self._dbapi_connection.cursor() # TODO: are any params required?
-		else:
-			raise NotImplementedError()
-
-
-	# # def create_server_side_cursor_my(self):
-	# # 	if self.dialect.supports_server_side_cursors:
-	# # 		return self._dbapi_connection.cursor(self.dialect._sscursor)
-	# # 	else:
-	# # 		raise NotImplementedError()
-
-	# # def create_server_side_cursor_maria(self):
-	# # 	return self._dbapi_connection.cursor(buffered=False)
-
-	# # def create_server_side_cursor_pg8000(self):
-	# # 	ident = "c_%s_%s" % (hex(id(self))[2:], hex(_server_side_id())[2:])
-	# # 	return ServerSideCursor(self._dbapi_connection.cursor(), ident)
-
-	# # def create_server_side_cursor(self):
-	# # 	# use server-side cursors:
-	# # 	# psycopg
-	# # 	# https://www.psycopg.org/psycopg3/docs/advanced/cursors.html#server-side-cursors
-	# # 	# psycopg2
-	# # 	# https://www.psycopg.org/docs/usage.html#server-side-cursors
-	# # 	ident = "c_%s_%s" % (hex(id(self))[2:], hex(_server_side_id())[2:])
-	# # 	return self._dbapi_connection.cursor(ident)
-
-	# # def create_server_side_cursor(self):
-	# # 	raise NotImplementedError()
-
-
-
-#i fire_sequence; ec; ms; my; ora; pg
-	def fire_sequence(self, seq, type_):
-		"""given a :class:`.Sequence`, invoke it and return the next int value"""
-		raise NotImplementedError()
-
-	# # def fire_sequence_my(self, seq, type_):
-	# # 	return self._execute_scalar(
-	# # 		(
-	# # 			"select nextval(%s)"
-	# # 			% self.identifier_preparer.format_sequence(seq)
-	# # 		),
-	# # 		type_,
-	# # 	)
-
-#i get_insert_default; dec; ms; pg
-	def get_insert_default(self, column):
-		raise NotImplementedError()
-		return super().get_insert_default(column)
-
-#i get_lastrowid; dec; ms
-	def get_lastrowid(self):
-		raise NotImplementedError()
-		return super().get_lastrowid()	
-
-#i handle_dbapi_exception; ec; dec; ms
-	def handle_dbapi_exception(self, e):
-		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
-		return super().handle_dbapi_exception(e)
-
-#i post_exec; ec; dec; ms
-	def post_exec(self):
-		super().post_exec()
-	# TODO: inherit if unused
-
-#i pre_exec; ec; dec; ms; ora
-	def pre_exec(self):
-		super().pre_exec()
-	# TODO: inherit if unused
-
-	# # def pre_exec_pg8000(self):
-	# # 	if not self.compiled:
-	# # 		return
-
-#i rowcount; dec; ms
-	def rowcount(self):
-		return super().rowcount()
+#j get_result_processor ; dec
+	# TODO: remove X to enable
+	def get_result_processorX(self, type_, colname, coltype):
+		"""jsn: Return a 'result processor' for a given type as present in cursor.description.
+		Override this method for context-sensitive result type handling."""
+		print('### str type_', str(type_))
+		if str(type_) != 'NULL':
+			breakpoint() # Break here to examine what type is being received.
+		return super().get_result_processor(type_, colname, coltype)
+	# This DefaultExecutionContext method is not normally overriden. It's only done here for troubleshooting purposes.
+	# TODO: remove after troubleshooting
 
 
 class HyperSqlDialect(default.DefaultDialect):
@@ -1179,6 +1523,7 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i  execution_ctx_cls: Type[ExecutionContext]; """a :class:`.ExecutionContext` class used to handle statement execution"""
 	execution_ctx_cls = HyperSqlExecutionContext
+	#- JayDeBeApi connector may need a derived execution_ctx_cls. Stub created.
 
 #i  execute_sequence_format: tuple # JSN: Use the DefaultDialect's property.
 	# execute_sequence_format: tuple # inherit from DefaultDialect
@@ -2407,9 +2752,13 @@ class HyperSqlDialect(default.DefaultDialect):
 			return True
 
 		# Log unhandled exceptions...
-		if True or isinstance(e, (self.dbapi.Error, self.dbapi.Warning)): # TODO: remove 'True or'
-			raise NotImplementedError('Update is_disconnect to ')
-			return True
+		if isinstance(e, (self.dbapi.Error, self.dbapi.Warning)): # TODO: remove 'True or'
+			print('### repr e:', repr(e))
+			print('### repr self.dbapi.Error:', repr(self.dbapi.Error))
+			print('### repr self.dbapi.Warning:', repr(self.dbapi.Warning))
+			print('### str e:', str(e))
+			breakpoint() #-
+			raise NotImplementedError("Unhandled exception. Update the method 'HyperSqlDialect.is_disconnect'")
 		# TODO: Remove the above test
 
 		return False

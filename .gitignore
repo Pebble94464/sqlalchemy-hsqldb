@@ -3,3 +3,4 @@
 /sqlalchemy_hsqldb/__pycache__/
 /sqlalchemy_hsqldb.egg-info
 /test/__pycache__/
+scratch*
