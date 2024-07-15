@@ -360,28 +360,6 @@ class _DateTime(sqltypes.DateTime):
 		return super().literal_processor(dialect)
 
 
-# Oracle's TIMESTAMP class below... TODO: remove or adapt
-class TIMESTAMP_oracle(sqltypes.TIMESTAMP):
-	"""Oracle implementation of ``TIMESTAMP``, which supports additional
-	Oracle-specific modes
-	.. versionadded:: 2.0
-	"""
-	def __init__(self, timezone: bool = False, local_timezone: bool = False):
-		"""Construct a new :class:`_oracle.TIMESTAMP`.
-		:param timezone: boolean.  Indicates that the TIMESTAMP type should
-		use Oracle's ``TIMESTAMP WITH TIME ZONE`` datatype.
-		:param local_timezone: boolean.  Indicates that the TIMESTAMP type
-		should use Oracle's ``TIMESTAMP WITH LOCAL TIME ZONE`` datatype.
-		"""
-		if timezone and local_timezone:
-			raise exc.ArgumentError(
-				"timezone and local_timezone are mutually exclusive"
-			)
-		super().__init__(timezone=timezone)
-		self.local_timezone = local_timezone
-
-
-
 
 # WIP: what are colspecs?
 #		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
