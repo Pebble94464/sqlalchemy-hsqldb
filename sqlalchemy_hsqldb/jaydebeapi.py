@@ -155,6 +155,7 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 
 		# We also need to add 'TIMESTAMP_WITH_TIMEZONE' to DBAPITypeObject...
 		m.DBAPITypeObject('TIMESTAMP_WITH_TIMEZONE')
+		m.DBAPITypeObject('TIME_WITH_TIMEZONE')
 
 		# Notes:
 		#	Inside jaydebeapi's __init__.py file the class is instantiated for
@@ -223,19 +224,9 @@ def _to_time(rs, col) -> (dt.time | None):
 	seconds = obj.getSeconds()
 	return dt.time(hours, minutes, seconds)
 
-def _to_time_with_timezone(rs, col) -> (dt.time | None):
-	'''Convert from java.time.ZoneOffset to datetime.time'''
-	obj = rs.getObject(col) # <java class 'java.time.ZoneOffset'>
-	if not obj:
-		return None
-	assert str(obj.__class__) == "<java class 'java.time.ZoneOffset'>"
-	hour = obj.getHour()
-	minute = obj.getMinute()
-	second = obj.getSecond()
-	zone_offset = obj.getOffset() # <java class 'java.time.ZoneOffset'>
-	offset_seconds = zone_offset.getTotalSeconds()
-	tzinfo1 = dt.timezone(dt.timedelta(seconds=offset_seconds))
-	return dt.time(hour, minute, second, tzinfo=tzinfo1)
+def _to_time_with_timezone(rs, col): # -> (java.time.OffsetTime | None):
+	'''Returns a java.time.OffsetTime object'''
+	return rs.getObject(col)
 
 
 #--
