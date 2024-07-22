@@ -213,16 +213,9 @@ dialect = HyperSqlDialect_jaydebeapi
 # 	day = obj.getDate()
 # 	return dt.date(year, month, day)
 
-def _to_time(rs, col) -> (dt.time | None):
-	'''Convert from java.sql.Time to datetime.time'''
-	obj = rs.getTime(col)
-	if not obj:
-		return None
-	assert str(obj.__class__) == "<java class 'java.sql.Time'>"
-	hours = obj.getHours()
-	minutes = obj.getMinutes()
-	seconds = obj.getSeconds()
-	return dt.time(hours, minutes, seconds)
+def _to_time(rs, col): # -> (java.sql.Time | None):
+	'''Returns a java.sql.Time object'''
+	return rs.getTime(col)
 
 def _to_time_with_timezone(rs, col): # -> (java.time.OffsetTime | None):
 	'''Returns a java.time.OffsetTime object'''

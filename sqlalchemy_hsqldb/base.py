@@ -197,20 +197,6 @@ class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by
 		return dbapi.NUMBER
 
 
-# WIP: TIME and TIME with timezone...
-"""
-create table s1.t6 (id int, t TIME WITH TIME ZONE)
-INSERT INTO s1.t6 VALUES(2, '13:14:15.245+06:00')
-SELECT * FROM s1.t6
--- Stores time as 13:14:15+06:00, i.e. fractions of a second are dropped.
--- Fractional seconds are optional, e.g. TIME(6) has six digits for fractional seconds.
--- https://hsqldb.org/doc/2.0/guide/guide.html#sgc_datetime_types
-
-create table s1.t7 (id int, t TIME(6) WITH TIME ZONE)
-INSERT INTO s1.t7 VALUES(2, '14:15:16.369+07:00')
-SELECT * FROM s1.t7
-"""
-
 class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 	__visit_name__ = 'TIME'
 	#- Visit methods are compiler methods. When TIME(timezone=True) is specified, we want to emit a TIME_WITH_TIME_ZONE
@@ -272,101 +258,98 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 		return process
 
 
-#- ############################################
-"""
-WIP:
-The class for 'TIME WITH TIME ZONE' now works.
-bind and result processing good.
 
-Next step is to test 'TIME' without a timezone.
-The TIME class below was replaced by _TIME_WITH_TIME_ZONE,
-but left in place in case we need to use it.
-It's not currently registered with ischema_names.
+class JvmTimezone:
+	_dst_savings = None
+	_raw_offset = None
 
-"""
+	@staticmethod
+	def _initialize():
+		JTimeZone = JClass('java.util.TimeZone', False)
+		# Get the default TimeZone of the Java virtual machine...
+		zone_info = JTimeZone.getDefault() # <java class 'sun.util.calendar.ZoneInfo'>
+		JvmTimezone._raw_offset = zone_info.getRawOffset()
+		JvmTimezone._dst_savings = zone_info.getDSTSavings()
+		del zone_info
+
+	@staticmethod
+	def get_offset():
+		if JvmTimezone._raw_offset == None:
+			JvmTimezone._initialize()
+		assert JvmTimezone._raw_offset != None
+		return JvmTimezone._raw_offset
+
+	@staticmethod
+	def get_dst_savings():
+		if JvmTimezone._dst_savings == None:
+			JvmTimezone._initialize()
+		assert JvmTimezone._dst_savings != None
+		return JvmTimezone._dst_savings
 
 
-class TIME(sqltypes.TIME):
+class _TIME(sqltypes.TIME):
 	__visit_name__ = 'TIME'
+	# HSQLDB's TIME datatype has a precision setting, but it seems to have no effect,
+	# and fractions of a second the underlying java.sql.Time are stored in milliseconds,
+	# which are less precise than the microseconds used for datetime.
+	# TODO: investigate how other dialects handle fractions of a second for TIME.
+	# TODO: impl precision param for hsqldb's TIME class, if needed.
 
 	def __init__(self, timezone: bool = False, precision: Optional[int] = None):
 		"""
 		Construct a new :class:`_hsqldb.TIME`.
 		:param timezone: boolean.  Indicates that the TIME type should
-		use HyperSQL's ``TIME WITH TIME ZONE`` datatype.
+		use HyperSQL's ``TIME`` datatype.
 		"""
 		# TODO: update description above
-		print('### hsqldb TIME constructor') #-
+		print('### hsqldb _TIME constructor') #-
 		# breakpoint() #-
 		super().__init__(timezone=timezone)
 		#- timezone is a member of sqltypes.Time class
-		# TODO: impl precision param for hsqldb's TIME class
 
 	def bind_processor(self, dialect):
-		print('### hsqldb TIME bind_processor intercepted')
-		breakpoint() #-
-		if self.timezone == False:
-			raise NotImplementedError('xxx: bind processor for TIME without timezone')
-			# return self._bind_processor_timestamp
-		else:
-			return self._bind_processor_offsettime
-			return self._bind_processor_offsetdatetime
-		#- return super().bind_processor(dialect)
+		print('### hsqldb TIME bind_processor')
+		def process(value):
+			if type(value) != datetime.time:
+				return None
 
-	def _bind_processor_offsettime(self, value):
-		""" convert ? to java.time.OffsetTime """
-			# <java class 'java.time.OffsetTime'>
-		breakpoint() #-
-		# if type(value) != datetime.datetime:
-		# 	return None
-		# year = value.year
-		# month = value.month
-		# day = value.day
-		# hour = value.hour
-		# minute = value.minute
-		# second = value.second
-		# nano = value.microsecond * 1000
-		# timedelta = value.tzinfo.utcoffset(None)
-		# JOffsetDateTime = JClass('java.time.OffsetDateTime', False)
-		# #- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html
-		# JZoneOffset = JClass('java.time.ZoneOffset')
-		# #- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
-		# return JOffsetDateTime.of(year, month, day, hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
-		raise NotImplementedError('xxx: bind processor for TIME with timezone')
+			# Check for precision loss...			
+			if value.microsecond % 1000 > 0:
+				print('# Warning: potential precision loss while converting from microseconds to milliseconds')
+			# TODO: How to handle precision loss, log warning?
+
+			JTime = JClass('java.sql.Time', False)
+			milliseconds = \
+				(value.hour * 60 * 60 +\
+				value.minute * 60 +\
+				value.second) * 1000 +\
+				int(value.microsecond / 1000) # The conversion from microsecond to millisecond will cause precision loss.
+
+			# When HSQLDB org.hsqldb.jdbc.JDBCPreparedStatement setXXX methods
+			# are called, time values are adjusted for timezone and DST.
+			# This is documented for TIME | TIMESTAMP WITH TIME ZONE,
+			# and also appears to be the case for TIME WITHOUT TIME ZONE.
+
+			# Make an adjustment to counter HSQLDB's adjustment...
+			a = JvmTimezone.get_dst_savings()
+			b = JvmTimezone.get_offset()
+			milliseconds -= (a + b)
+
+			return JTime(milliseconds)
+		return process
+		# TODO: test with other timezone / dst combinations, like -4 hrs UTC Atlantic time (Canada), with and without DST.
 
 	def result_processor(self, dialect, coltype):
-		print('### hsqldb TIME result_processor intercepted')
-		breakpoint() #-
-
-		if 'TIME_WITH_TIMEZONE' in coltype.values:
-			# <java class 'java.time.OffsetTime'>
-			return self._java_time_offsettime_TO_datetime
-		else:
-			# <java class 'java.sql.Timestamp'>
-			raise NotImplementedError('xxx: TIME.result_processor for java.sql.Timestamp')
-			return None
-		#- return super().result_processor(dialect, coltype)
-
-	def _java_time_offsettime_TO_datetime(self, value):
-		"""Convert java.time.OffsetTime to datetime.datetime"""
-		breakpoint() #-
-		if not value:
-			return None
-		assert str(value.__class__) ==  "<java class 'java.time.OffsetTime'>"
-		hour = value.getHour()
-		minute = value.getMinute()
-		second = value.getSecond()
-		microsecond = int(value.getNano() / 1000)
-		zone_offset = value.getOffset() # <java class 'java.time.ZoneOffset'>
-		offset_seconds = zone_offset.getTotalSeconds()
-		tzinfo1 = dt.timezone(dt.timedelta(seconds=offset_seconds))
-		return dt.time(hour, minute, second, microsecond, tzinfo=tzinfo1)
-
-
-
-
-
-
+		print('### hsqldb _TIME result_processor')
+		def processor(value):
+			breakpoint() #-
+			assert str(value.__class__) == "<java class 'java.sql.Time'>"
+			hours = value.getHours()
+			minutes = value.getMinutes()
+			seconds = value.getSeconds()
+			microseconds = value.getTime() % 1000 * 1000
+			return dt.time(hours, minutes, seconds, microseconds)
+		return processor
 
 class TIMESTAMP(sqltypes.TIMESTAMP):
 	__visit_name__ = 'TIMESTAMP'
@@ -625,6 +608,9 @@ ischema_names = {
 	"DATE": sqltypes.DATE,
 	#- "java.lang.Date": sqltypes.DATE,
 	#- "DATE": _Date,
+
+
+	"TIME": _TIME,  # TODO: ensure class name follows naming convension
 
 	#- hsqldb uses two different types for time with and without timezone, i fink, so...
 	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,  # TODO: ensure class name follows naming convension
