@@ -516,7 +516,6 @@ colspecs = {
 	# sqltypes.LargeBinary: JDBCBlobClient,
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
-	sqltypes.Date: _Date,
 
 	# sqltypes.DateTime: _DateTime,
 	# ^^^ When colspecs contains an entry for DateTime it seems to prevent
@@ -578,13 +577,7 @@ ischema_names = {
 	"NUMERIC": sqltypes.NUMERIC,
 	"VARCHAR": sqltypes.VARCHAR,
 
-# WIP: -->
-	"DATE": sqltypes.DATE,
-	#- "java.lang.Date": sqltypes.DATE,
-	#- "DATE": _Date,
-
-
-	"TIME": _TIME,  # TODO: ensure class name follows naming convension
+	"DATE": _Date,
 
 	#- hsqldb uses two different types for time with and without timezone, i fink, so...
 	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,  # TODO: ensure class name follows naming convension
