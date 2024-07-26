@@ -145,17 +145,17 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 	def import_dbapi(cls) -> ModuleType:
 		m = __import__("jaydebeapi")
 
-		# After the module has loaded we need update the converters dictionary
-		# to point to our redefined / custom functions...
-		m._DEFAULT_CONVERTERS['TIMESTAMP'] = _to_datetime
-		m._DEFAULT_CONVERTERS['TIMESTAMP_WITH_TIMEZONE'] = _to_datetime_with_timezone
+		# After the jaydebeapi module is loaded we need update the converters
+		# dictionary to point to our redefined functions...
 		m._DEFAULT_CONVERTERS['DATE'] = _to_date
 		m._DEFAULT_CONVERTERS['TIME'] = _to_time
 		m._DEFAULT_CONVERTERS['TIME_WITH_TIMEZONE'] = _to_time_with_timezone
+		m._DEFAULT_CONVERTERS['TIMESTAMP'] = _to_datetime
+		m._DEFAULT_CONVERTERS['TIMESTAMP_WITH_TIMEZONE'] = _to_datetime_with_timezone
 
-		# We also need to add 'TIMESTAMP_WITH_TIMEZONE' to DBAPITypeObject...
-		m.DBAPITypeObject('TIMESTAMP_WITH_TIMEZONE')
+		# We also need to add to DBAPITypeObject._mappings for certain types...
 		m.DBAPITypeObject('TIME_WITH_TIMEZONE')
+		m.DBAPITypeObject('TIMESTAMP_WITH_TIMEZONE')
 
 		# Notes:
 		#	Inside jaydebeapi's __init__.py file the class is instantiated for
@@ -173,45 +173,13 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 
 		return m
 
-	#- The Access dialect sets module.pooling = (False). What's that?
+# Jaydebeapi's converter methods return strings by default for for date, time
+# and datetime types.  The replacement converter functions below return objects
+# instead...
 
-dialect = HyperSqlDialect_jaydebeapi
-# Currently troubleshooting a plug-in loading issue.
-# All the other built-in dialects appear to define 'dialect' in their driver files.
-# However, the driver for Access does not define 'dialect.
-# Update: 'dialect' is now referenced in the module's __init__.py file.
-#			This hasn't yet resolved the plug-in loading issue.
-# TODO: review whether dialect actually needs defining.
-
-
-
-# Default converter methods...
-
-# def _to_datetime(rs, col) -> (dt.datetime | None):
-# 	'''Convert from java.sql.Timestamp to datetime.datetime'''
-# 	obj = rs.getTimestamp(col)
-# 	if not obj:
-# 		return None
-# 	assert str(obj.__class__) == "<java class 'java.sql.Timestamp'>"
-# 	year = obj.getYear() + 1900
-# 	month = obj.getMonth() + 1
-# 	day = obj.getDate()
-# 	hours = obj.getHours()
-# 	minutes = obj.getMinutes()
-# 	seconds = obj.getSeconds()
-# 	microseconds = int(obj.getNanos() / 1000)
-# 	return dt.datetime(year, month, day, hours, minutes, seconds, microseconds)
-
-# def _to_date(rs, col) -> (dt.date | None):
-# 	'''Convert from java.sql.Date to datetime.date'''
-# 	obj = rs.getDate(col)
-# 	if not obj:
-# 		return None
-# 	assert str(obj.__class__) == "<java class 'java.sql.Date'>"
-# 	year = obj.getYear() + 1900
-# 	month = obj.getMonth() + 1
-# 	day = obj.getDate()
-# 	return dt.date(year, month, day)
+def _to_date(rs, col): # -> (java.sql.date | None):
+	'''Returns a java.sql.date object'''
+	return rs.getDate(col)
 
 def _to_time(rs, col): # -> (java.sql.Time | None):
 	'''Returns a java.sql.Time object'''
@@ -221,33 +189,20 @@ def _to_time_with_timezone(rs, col): # -> (java.time.OffsetTime | None):
 	'''Returns a java.time.OffsetTime object'''
 	return rs.getObject(col)
 
-
-#--
-
-def _to_datetime(rs, col) -> (dt.datetime | None):
-	'''Convert from java.sql.Timestamp to datetime.datetime'''
+def _to_datetime(rs, col): # -> (java.sql.Timestamp | None):
+	'''Returns a java.sql.Timestamp object'''
 	return rs.getTimestamp(col)
-	# obj = rs.getTimestamp(col)
-	# if not obj:
-	# 	return None
-	# assert str(obj.__class__) == "<java class 'java.sql.Timestamp'>"
-	# year = obj.getYear() + 1900
-	# month = obj.getMonth() + 1
-	# day = obj.getDate()
-	# hours = obj.getHours()
-	# minutes = obj.getMinutes()
-	# seconds = obj.getSeconds()
-	# microseconds = int(obj.getNanos() / 1000)
-	# return dt.datetime(year, month, day, hours, minutes, seconds, microseconds)
-# TODO: remove commented out section above
 
-def _to_datetime_with_timezone(rs, col): # -> (dt.datetime | None):
-	'''Convert from java.time.OffsetDateTime to datetime.datetime'''
+def _to_datetime_with_timezone(rs, col): # -> (java.time.OffsetDateTime | None):
+	'''Returns a java.time.OffsetDateTime object'''
 	return rs.getObject(col)
 
 
-
-def _to_date(rs, col): # -> (dt.date | None):
-	'''Simply return the java.sql.date object instead of a string'''
-	return rs.getDate(col)
+dialect = HyperSqlDialect_jaydebeapi
+# Currently troubleshooting a plug-in loading issue.
+# All the other built-in dialects appear to define 'dialect' in their driver files.
+# However, the driver for Access does not define 'dialect.
+# Update: 'dialect' is now referenced in the module's __init__.py file.
+#			This hasn't yet resolved the plug-in loading issue.
+# TODO: review whether dialect actually needs defining.
 
