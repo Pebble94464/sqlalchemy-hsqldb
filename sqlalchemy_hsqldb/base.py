@@ -446,61 +446,35 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 		return dt.datetime(year, month, day, hours, minutes, seconds, microseconds)
 	# TODO: This conversion function is fairly generic. Consider making it global instead of a class member function. Is it used elsewhere?
 
-
 class _Date(sqltypes.Date):
-	#- Stays private to the dialect because it is named with an underscore.
-	#- Will be invoked via the colspecs dictionary only. 
-	#- Named using camel case because it extends a generic type.
 	__visit_name__ = "DATE"
 
-#- see line 1282 for get_result_processor
+	def bind_processor(self, dialect):
+		def processor(value):
+			assert type(value) == datetime.date, "_Date bind processor excpects datetime.date" #-
+			if type(value) != datetime.date:
+				return None
+			year = value.year - 1900
+			month = value.month - 1
+			day = value.day
+			JDate = JClass('java.sql.Date')
+			return JDate(year, month, day)
+		return processor
+
 	def result_processor(self, dialect, coltype):
-		print('### _Date result_processor 2')
-		print('### type coltype: ', type(coltype)) #- <class 'jaydebeapi.DBAPITypeObject'>
-		print('### repr coltype: ', repr(coltype)) #- DBAPITypeObject('DATE')
-		breakpoint() #-
 		def process(value):
-			assert str(value.__class__) == "<java class 'java.sql.Date'>", 'Expecting a java.sql.Date object'
+			assert str(value.__class__) == "<java class 'java.sql.Date'>", 'java.sql.Date object expected'
 			year = value.getYear() + 1900
 			month = value.getMonth() + 1
 			day = value.getDate()
 			return dt.date(year, month, day)
 		return process
-# """
-# # WIP: 2024-07-03
-# jaydebeapi_hsqldb.py contains some redefined conversion functions.
-# These were copied into jaydebeapi.py, and are assigned to _DEFAULT_CONVERTERS
-# inside the import_dbapi method.
-
-# The new conversion functions should actually only return the java objects,
-# not convert values to datetime objects.
-
-# The conversion of java objects too datetime objects belongs in the 'process'
-# methods of each type, as the one defined above for class _Date.
-
-# TODO: update all conversion methods in jaydebeapi_hsqldb.py to return java objects, not datetime objects.
-# TODO: Transfer the logic contained in those conversion functions in to the 'process' methods for each type.
-# TODO: But first... transfer the *_WITH_TIMEZONE types and ensure they're working as expected
-# """
-
-
-	def bind_processor(self, dialect):
-		def processor(value):
-			if type(value) == datetime.date:
-				return jdbapi.Date(value.year, value.month, value.day)
-			else:
-				return value
-		return processor
-
-# str No matching overloads found for org.hsqldb.jdbc.JDBCPreparedStatement.setObject(int,datetime.date), options are:
-# 	public synchronized void org.hsqldb.jdbc.JDBCPreparedStatement.setObject(int,java.lang.Object) throws java.sql.SQLException
-
-
-
 
 	def literal_processor(self, dialect):
 		print('### _Date literal_processor')
+		breakpoint() #- When is this method called and does it produce a correct result?
 		return super().literal_processor(dialect)
+		# TODO: impl _Date literal processor if needed.
 
 class _DateTime(sqltypes.DateTime):
 	__visit_name__ = "DATETIME"
