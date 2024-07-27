@@ -154,8 +154,8 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 		m._DEFAULT_CONVERTERS['TIMESTAMP_WITH_TIMEZONE'] = _to_datetime_with_timezone
 
 		# We also need to add to DBAPITypeObject._mappings for certain types...
-		m.DBAPITypeObject('TIME_WITH_TIMEZONE')
-		m.DBAPITypeObject('TIMESTAMP_WITH_TIMEZONE')
+		_update_jaydebeapi_mappings(m, 'TIME_WITH_TIMEZONE')
+		_update_jaydebeapi_mappings(m, 'TIMESTAMP_WITH_TIMEZONE')
 
 		# Notes:
 		#	Inside jaydebeapi's __init__.py file the class is instantiated for
@@ -196,6 +196,12 @@ def _to_datetime(rs, col): # -> (java.sql.Timestamp | None):
 def _to_datetime_with_timezone(rs, col): # -> (java.time.OffsetDateTime | None):
 	'''Returns a java.time.OffsetDateTime object'''
 	return rs.getObject(col)
+
+def _update_jaydebeapi_mappings(m: ModuleType, hsqldb_type_name: str):
+	""" Add a mapping to jaydebeapi's DBAPITypeObject._mappings dictionary, but only if the mapping is missing. """
+	if hsqldb_type_name in m.DBAPITypeObject._mappings:
+		return
+	m.DBAPITypeObject(hsqldb_type_name)
 
 
 dialect = HyperSqlDialect_jaydebeapi
