@@ -70,16 +70,18 @@ from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import ReflectionDefaults
+
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import quoted_name
-from sqlalchemy import schema
 from sqlalchemy import BindTyping
-from sqlalchemy import util
 from sqlalchemy import exc
+from sqlalchemy import schema
+from sqlalchemy import select
+from sqlalchemy import util
+from sqlalchemy import values
 from sqlalchemy.schema import UniqueConstraint
 
-from sqlalchemy import schema
 from sqlalchemy.ext.compiler import compiles
 
 
@@ -293,7 +295,7 @@ class _TIME(sqltypes.TIME):
 	# and fractions of a second the underlying java.sql.Time are stored in milliseconds,
 	# which are less precise than the microseconds used for datetime.
 	# TODO: investigate how other dialects handle fractions of a second for TIME.
-	# TODO: impl precision param for hsqldb's TIME class, if needed.
+	# TODO: impl precision param for hsqldb's TIME class if needed.
 
 	def __init__(self, timezone: bool = False, precision: Optional[int] = None):
 		"""
@@ -308,7 +310,7 @@ class _TIME(sqltypes.TIME):
 		#- timezone is a member of sqltypes.Time class
 
 	def bind_processor(self, dialect):
-		print('### hsqldb TIME bind_processor')
+		print('### hsqldb TIME bind_processor') #-
 		def process(value):
 			if type(value) != datetime.time:
 				return None
@@ -328,7 +330,7 @@ class _TIME(sqltypes.TIME):
 			# When HSQLDB org.hsqldb.jdbc.JDBCPreparedStatement setXXX methods
 			# are called, time values are adjusted for timezone and DST.
 			# This is documented for TIME | TIMESTAMP WITH TIME ZONE,
-			# and also appears to be the case for TIME WITHOUT TIME ZONE.
+			# and also seems to be the case for TIME WITHOUT TIME ZONE.
 
 			# Make an adjustment to counter HSQLDB's adjustment...
 			a = JvmTimezone.get_dst_savings()
@@ -342,7 +344,6 @@ class _TIME(sqltypes.TIME):
 	def result_processor(self, dialect, coltype):
 		print('### hsqldb _TIME result_processor')
 		def processor(value):
-			breakpoint() #-
 			assert str(value.__class__) == "<java class 'java.sql.Time'>"
 			hours = value.getHours()
 			minutes = value.getMinutes()
@@ -449,9 +450,12 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 class _Date(sqltypes.Date):
 	__visit_name__ = "DATE"
 
+	render_bind_cast = True #rbc1
+	# TODO: The line above depends on the bind_typing setting. Remove if unused.
+
 	def bind_processor(self, dialect):
 		def processor(value):
-			assert type(value) == datetime.date, "_Date bind processor excpects datetime.date" #-
+			assert type(value) == datetime.date or value is None, "_Date bind processor excpects datetime.date or None" #-
 			if type(value) != datetime.date:
 				return None
 			year = value.year - 1900
@@ -463,7 +467,9 @@ class _Date(sqltypes.Date):
 
 	def result_processor(self, dialect, coltype):
 		def process(value):
-			assert str(value.__class__) == "<java class 'java.sql.Date'>", 'java.sql.Date object expected'
+			if value is None:
+				return None
+			assert str(value.__class__) == "<java class 'java.sql.Date'>", 'java.sql.Date object expected' #-
 			year = value.getYear() + 1900
 			month = value.getMonth() + 1
 			day = value.getDate()
@@ -490,6 +496,7 @@ class _DateTime(sqltypes.DateTime):
 
 	def literal_processor(self, dialect):
 		print('### _DateTime literal_processor')
+		breakpoint() #-
 		return super().literal_processor(dialect)
 
 
@@ -516,6 +523,12 @@ colspecs = {
 	# sqltypes.LargeBinary: JDBCBlobClient,
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
+
+	sqltypes.Date: _Date,
+	#- A tests fail if the above line isn't included. It seems the bind processor for _Date doesn't get called.
+	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_null_bound_comparison
+	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_select_direct
+
 
 	# sqltypes.DateTime: _DateTime,
 	# ^^^ When colspecs contains an entry for DateTime it seems to prevent
@@ -580,10 +593,9 @@ ischema_names = {
 	"DATE": _Date,
 
 	#- hsqldb uses two different types for time with and without timezone, i fink, so...
+	"TIME": _TIME,  # TODO: ensure class name follows naming convension
 	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,  # TODO: ensure class name follows naming convension
-	#- "TIME WITH TIME ZONE": TIME, #- Mistake... I reassigned TIME WITH TIME ZONE back to TIME. Doh!
 
-	# Copied from Oracle...
 	"TIMESTAMP": TIMESTAMP,  # TIMESTAMP or DATETIME?
 	"TIMESTAMP WITH TIME ZONE": TIMESTAMP,
 	# "INTERVAL DAY TO SECOND": INTERVAL,
@@ -731,7 +743,11 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i render_bind_cast; sql; pg
 	def render_bind_cast(self, type_, dbapi_type, sqltext):
-		return super().render_bind_cast(type_, dbapi_type, sqltext)
+		return f"""{
+				self.dialect.type_compiler_instance.process(
+					dbapi_type, identifier_preparer=self.preparer
+				)
+			} {sqltext}"""
 	# 'render_bind_cast' gets called when HyperSqlDialect.bind_typing = BindTyping.BIND_CASTS
 	# 'render_bind_cast' is not implemented in the base.
 	# 'render_bind_cast' is specialised by the postgresql dialect.
@@ -741,14 +757,31 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i render_literal_value; sql; my; pg
 	def render_literal_value(self, value, type_):
 		# raise NotImplementedError('xxx: render_literal_value')
-		return super().render_literal_value(value, type_)
+		value = super().render_literal_value(value, type_)
+		breakpoint() #-
+		return value
+		# return super().render_literal_value(value, type_)
 	# TODO: inherit method from base class if behaviour is unchanged.
+	# HSQLDB literal values can be specified by proceeding values with a
+	# datatype, e.g. `SELECT c1 FROM (VALUES(DATE '1996-07-01'))`
 
 #i returning_clause; sql; ms; ora
 	def returning_clause(self, stmt, returning_cols, *, populate_result_map, **kw, ) -> str:
 		raise NotImplementedError('xxx: returning_clause')
 
 #i translate_select_structure; ms; ora
+	def translate_select_structure(self, select_stmt, **kwargs):
+
+		# Translate 'SELECT ?' to 'SELECT * ( VALUES(?) )'
+		froms = self._display_froms_for_select(
+			select_stmt, kwargs.get("asfrom", False))
+		if len(froms) == 0:
+			vals = values(*select_stmt.selected_columns).data(
+				[tuple([c.value for c in select_stmt.selected_columns])])
+			restructured_select = select('*').select_from(vals)
+			return restructured_select
+
+		return select_stmt
 
 #i update_from_clause; sql; ms; my; pg
 	def update_from_clause(self, update_stmt, from_table, extra_froms, from_hints, **kw):
@@ -1516,7 +1549,7 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	def get_result_processorX(self, type_, colname, coltype):
 		"""jsn: Return a 'result processor' for a given type as present in cursor.description.
 		Override this method for context-sensitive result type handling."""
-		print('### str type_', str(type_))
+		print(f'### colname: {str(colname)}, \t\tcoltype: {str(coltype)}, type_: {str(type_)}') #- a
 		if str(type_) != 'NULL':
 			breakpoint() # Break here to examine what type is being received.
 		return super().get_result_processor(type_, colname, coltype)
@@ -1920,16 +1953,12 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  """internal evaluation for supports_statement_cache"""
 
 #i  bind_typing = BindTyping.NONE; define a means of passing typing information to the database and/or driver for bound parameters.
-	bind_typing = BindTyping.NONE
-	# The options are... NONE | SETINPUTSIZES | RENDER_CASTS
-	#
-	# According to JPype documentation, the setinputsizes method has not been implemented. See...
-	# (https://jpype.readthedocs.io/en/latest/dbapi2.html#jpype.dbapi2.Cursor.setinputsizes)
-	# So, presumeably unsupported by HSQLDB via JayDeBeApi.
-	#
-	# Setting BindTyping to RENDER_CASTS results in calls to SQLCompiler.render_bind_casts
-	# The base class's method is not implemented. However the PG dialect overrides it.
-	# TODO: Investigate further. Can HSQLDB use RENDER_CASTS?
+	if True:
+		bind_typing = BindTyping.NONE
+	else:
+		bind_typing = BindTyping.SETINPUTSIZES
+		bind_typing = BindTyping.RENDER_CASTS
+	# TODO: Which bind typing should HSQLDB use? See JSN_Notes on 'Bind Typing'
 
 #i  is_async: bool; # """Whether or not this dialect is intended for asyncio use."""
 	is_async = False
@@ -2778,6 +2807,27 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i  def do_set_input_sizes(
 	#- def do_set_input_sizes( # inherit from Dialect
+	def do_set_input_sizes(self, cursor, list_of_tuples, context):
+		print('### do_set_input_sizes')
+		#- TODO: adapt or remove this function as required. Copied from cx_oracle.py.
+		#- This function is called when dialect.bind_typing is BindTyping.SETINPUTSIZES
+		#- JayDeBeApi's cursor.setinputsizes method is currently empty / undefined.
+		breakpoint() #-
+		if self.positional:
+			# not usually used, here to support if someone is modifying
+			# the dialect to use positional style
+			cursor.setinputsizes(
+				*[dbtype for key, dbtype, sqltype in list_of_tuples]
+			)
+		else:
+			collection = (
+				(key, dbtype)
+				for key, dbtype, sqltype in list_of_tuples
+				if dbtype
+			)
+
+			cursor.setinputsizes(**{key: dbtype for key, dbtype in collection})
+
 
 #i  def create_xid(self) -> Any:
 	#- def create_xid(self) -> Any: # Inherit from DefaultDialect
@@ -3045,4 +3095,4 @@ class HyperSqlDialect(default.DefaultDialect):
 	# TODO: verify the recently added setting above is required, and works as expected.
 	# TODO: find out where the above property is from - it's not part of the Dialect interface.
 
-
+breakpoint() #-
