@@ -621,11 +621,6 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i _get_limit_or_fetch; ms; ora
 #i _get_nonansi_join_whereclause; ora
 
-#i _literal_execute_expanding_parameter_literal_binds(self, parameter, values, bind_expression_template=None):
-	def _literal_execute_expanding_parameter(self, name, parameter, values):
-		raise NotImplementedError('xxx: _literal_execute_expanding_parameter')
-	# TODO: Unsure why this function has been stubbed. remove it?
-
 #i _mariadb_regexp_flags; my
 #i _on_conflict_target; pg
 #i _regexp_match; my; pg
