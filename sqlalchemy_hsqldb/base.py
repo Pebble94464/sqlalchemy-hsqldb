@@ -455,8 +455,8 @@ class _Date(sqltypes.Date):
 
 	def bind_processor(self, dialect):
 		def processor(value):
-			assert type(value) == datetime.date or value is None, "_Date bind processor excpects datetime.date or None" #-
-			if type(value) != datetime.date:
+			assert isinstance(value, datetime.date) or value is None, "_Date bind processor expects datetime.date, datetime.datetime, or None" #-
+			if isinstance(value, datetime.date) == False:
 				return None
 			year = value.year - 1900
 			month = value.month - 1
