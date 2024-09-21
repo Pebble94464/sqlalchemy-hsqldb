@@ -525,11 +525,11 @@ colspecs = {
 	sqltypes.Boolean: HyperSqlBoolean,
 
 	sqltypes.Date: _Date,
-	# sqltypes.DateTime: _DateTime,
-	# ^^^ When colspecs contains an entry for DateTime it seems to prevent
-	#     the TIMESTAMP constructor and bind_processor from working.
-	# class _DateTime doesn't currently add any extra functionality. It's just displaying debug info at the mo. 
-	# TODO: Remove _DateTime if unused.
+	#- A tests fail if the above line isn't included. It seems the bind processor for _Date doesn't get called.
+	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_null_bound_comparison
+	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_select_direct
+
+	sqltypes.DateTime: TIMESTAMP,
 
 	# sqltypes.TIMESTAMP: TIMESTAMP, # 
 
@@ -591,7 +591,7 @@ ischema_names = {
 	"TIME": _TIME,  # TODO: ensure class name follows naming convension
 	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,  # TODO: ensure class name follows naming convension
 
-	"TIMESTAMP": TIMESTAMP,  # TIMESTAMP or DATETIME?
+	"TIMESTAMP": TIMESTAMP,
 	"TIMESTAMP WITH TIME ZONE": TIMESTAMP,
 	# "INTERVAL DAY TO SECOND": INTERVAL,
 
@@ -1394,6 +1394,16 @@ class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
 		else:
 			return "TIMESTAMP"
 	# TODO: timestamp precision
+
+	def visit_datetime(self, type_, **kw):
+		return self.visit_TIMESTAMP(type_, **kw)
+	#- This function causes SQLAlchemy render TIMESTAMP instead of DATETIME when a table is created.
+	#- However there's possibly more going on here and maybe it could be thought of as some conversion process,
+	#- returning a compiled TIMESTAMP object instead of a compiled DATETIME object. Is this correct?
+	#-
+	#- DATETIME is not an HSQLDB datatype, but HSQLDB seems to accept it in DDL
+	#- and treats it as an alias for TIMESTAMP.
+	#- The pg dialect also defines this function.
 
 	def visit_TIME(self, type_, **kw):
 		if type_.timezone == True:
