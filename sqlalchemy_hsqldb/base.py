@@ -525,11 +525,6 @@ colspecs = {
 	sqltypes.Boolean: HyperSqlBoolean,
 
 	sqltypes.Date: _Date,
-	#- A tests fail if the above line isn't included. It seems the bind processor for _Date doesn't get called.
-	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_null_bound_comparison
-	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_select_direct
-
-
 	# sqltypes.DateTime: _DateTime,
 	# ^^^ When colspecs contains an entry for DateTime it seems to prevent
 	#     the TIMESTAMP constructor and bind_processor from working.
