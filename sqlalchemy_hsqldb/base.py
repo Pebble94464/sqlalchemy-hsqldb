@@ -421,6 +421,8 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 	def _java_time_offsetdatetime_TO_datetime(self, value):
 		"""Convert java.time.OffsetDateTime to datetime.datetime"""
 		print('### _java_time_offsetdatetime_TO_datetime') #-
+		if value is None:
+			return value
 		year = value.getYear()
 		month = value.getMonthValue()
 		day = value.getDayOfMonth()
@@ -437,6 +439,8 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 	def _java_sql_datetime_TO_datetime(self, value):
 		"""Convert java.sql.datetime to datetime.datetime"""
 		print('### _java_sql_datetime_TO_datetime') #-
+		if value is None:
+			return value
 		year = value.getYear() + 1900
 		month = value.getMonth() + 1
 		day = value.getDate()
