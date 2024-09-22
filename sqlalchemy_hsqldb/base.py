@@ -1413,6 +1413,9 @@ class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
 	# Reserved words can be a union of sets 1 and 3, or 2 and 3.
 	reserved_words = RESERVED_WORDS_1.union(RESERVED_WORDS_3)
 
+	# Identifiers must begin with a letter...
+	illegal_initial_characters = {str(dig) for dig in range(0, 10)}.union(['_', '$'])
+
 	def __init__(self, dialect, **kwargs):
 		super().__init__(dialect, **kwargs)
 
