@@ -898,7 +898,21 @@ class HyperSqlRequirements(SuiteRequirements):
         a plain string.
 
         """
-        return exclusions.open()
+        return exclusions.closed()
+    # An exception is being raised during execution of...
+    # 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_select_direct
+    #
+    # According to this post (https://sourceforge.net/p/hsqldb/feature-requests/362/),
+    # "hsqldb treats all merge parameter types as varchar".    
+    #
+    # FredT replies with "You can indicate the intended type using a CAST:
+    # USING (select ? AS ID, CAST(? AS DATE) AS DATE1, CAST(? AS TIMESTAMP) AS TIMESTAMP1,
+    # ...
+    # We may support setting the date and timestamp without a parameter in the next release."
+    # Needs further investigation.
+    #
+    # TODO: all *_implicit_bound requirements in this file now return exclusions.closed(). Revert the change once the issue has been resolved.
+	
 
     @property
     def time_implicit_bound(self):
