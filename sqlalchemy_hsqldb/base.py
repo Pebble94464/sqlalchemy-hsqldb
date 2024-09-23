@@ -771,7 +771,12 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 			select_stmt, kwargs.get("asfrom", False))
 		if len(froms) == 0:
 			vals = values(*select_stmt.selected_columns).data(
-				[tuple([c.value for c in select_stmt.selected_columns])])
+				[tuple([
+					c.value
+					#- What if 'c' has no 'value' attribute? (Seen while executing test_exception_with_non_ascii, now disabled)
+					#- Could possibly call getattr(c, 'value', None), but will it produce the expected behaviour?
+					for c in select_stmt.selected_columns
+					])])
 			restructured_select = select('*').select_from(vals)
 			return restructured_select
 
