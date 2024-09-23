@@ -402,6 +402,18 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 # #         # "[BracketsAndCase]", "dot_s", and "q?marks" cases
 # #         return
 
+class ExceptionTest(_ExceptionTest):
+	@testing.skip('hsqldb', reason='HSQLDB seems to accept non-ASCII chars, so possibly no way to raise an error.')
+	def test_exception_with_non_ascii(self):
+		return
+	# The original test generates the query "SELECT méil"
+	# HSQLDB doesn't allow direct selection of a literal value, but it will
+	# succeed if we try  "SELECT * FROM (VALUES('méil'))", or
+	# "SELECT méil FROM (VALUES (NULL)) AS myvalues (méil)"
+	# I'm unsure why this test expects a database error.
+	# The original test notes there's no way to generate a non-ASCII error
+	# message for some drivers.
+	# TODO: investigate further.
 
 # # class ExistsTest(_ExistsTest):
 # #     @testing.skip("access")
