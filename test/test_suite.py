@@ -37,6 +37,7 @@ from sqlalchemy.testing.suite import DateTimeTest as _DateTimeTest
 from sqlalchemy.testing.suite import (
     DifficultParametersTest as _DifficultParametersTest,
 )
+from sqlalchemy.testing.suite import ExceptionTest as _ExceptionTest
 from sqlalchemy.testing.suite import ExistsTest as _ExistsTest
 from sqlalchemy.testing.suite import (
     ExpandingBoundInTest as _ExpandingBoundInTest,
@@ -414,6 +415,7 @@ class ExceptionTest(_ExceptionTest):
 	# The original test notes there's no way to generate a non-ASCII error
 	# message for some drivers.
 	# TODO: investigate further.
+	# pytest -rP -x --db hsqldb test/test_suite.py::ExceptionTest::test_exception_with_non_ascii
 
 # # class ExistsTest(_ExistsTest):
 # #     @testing.skip("access")
