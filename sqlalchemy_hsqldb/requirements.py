@@ -921,7 +921,7 @@ class HyperSqlRequirements(SuiteRequirements):
         a plain string.
 
         """
-        return exclusions.open()
+        return exclusions.closed()
 
     @property
     def datetime_implicit_bound(self):
@@ -930,7 +930,7 @@ class HyperSqlRequirements(SuiteRequirements):
         a plain string.
 
         """
-        return exclusions.open()
+        return exclusions.closed()
 
     @property
     def datetime_microseconds(self):
