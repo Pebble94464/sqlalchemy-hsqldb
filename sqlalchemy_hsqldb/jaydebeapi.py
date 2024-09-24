@@ -144,65 +144,38 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 	@classmethod
 	def import_dbapi(cls) -> ModuleType:
 		m = __import__("jaydebeapi")
-
-		# After the jaydebeapi module is loaded we need update the converters
-		# dictionary to point to our redefined functions...
-		m._DEFAULT_CONVERTERS['DATE'] = _to_date
-		m._DEFAULT_CONVERTERS['TIME'] = _to_time
-		m._DEFAULT_CONVERTERS['TIME_WITH_TIMEZONE'] = _to_time_with_timezone
-		m._DEFAULT_CONVERTERS['TIMESTAMP'] = _to_datetime
-		m._DEFAULT_CONVERTERS['TIMESTAMP_WITH_TIMEZONE'] = _to_datetime_with_timezone
-
-		# We also need to add to DBAPITypeObject._mappings for certain types...
-		_update_jaydebeapi_mappings(m, 'TIME_WITH_TIMEZONE')
-		_update_jaydebeapi_mappings(m, 'TIMESTAMP_WITH_TIMEZONE')
-
-		# Notes:
-		#	Inside jaydebeapi's __init__.py file the class is instantiated for
-		#	each SQL type when the module is loaded, and the results are then
-		#	assigned to variables which appear to be unused.  The instantiation
-		#	above for 'TIMESTAMP_WITH_TIMEZONE' seems to work fine without the
-		#	results being assigned.  But failing to instantiate it for
-		#	'TIMESTAMP_WITH_TIMEZONE' causes an error message to be displayed:
-		#		"UserWarning: No type mapping for JDBC type
-		#		'TIMESTAMP_WITH_TIMEZONE' (constant value 2014).
-		# 		Using None as a default type_code."
-		#	Further investigation is needed to fully understand how this class
-		#	is used.
-		# 	DBAPITypeObject._mappings is a dictionary shared by all instances of the class.
-
+		if False:
+			m._unknownSqlTypeConverter = _intercept_unknown_types
+		# TODO: remove _intercept_unknown_types when all types are known # 2014-09-06
 		return m
 
-# Jaydebeapi's converter methods return strings by default for for date, time
-# and datetime types.  The replacement converter functions below return objects
-# instead...
+# 2024-09-06
+def _intercept_unknown_types(rs, col) -> None:
+	'''Replacement for jaydebeapi's _unknownSqlTypeConverter method, to display additional debugging info.'''
+	from sys import _getframe
+	file_name = _getframe().f_code.co_filename
+	function_name = _getframe().f_code.co_name
+	line_number = _getframe().f_lineno
+	java_val = rs.getObject(col)
+	column_type_name = str(rs.getMetaData().getColumnTypeName(col))
+	print('Debugging info...')
+	print('\tJava type: \t', type(java_val))
+	print('\tColumn type: \t', column_type_name)
+	print('\tValue: \t\t', str(java_val))
+	print(f'\tFile: \t\t {file_name}:{line_number}')
+	print('An entry can be added to _DEFAULT_CONVERTERS to resolve this issue.')
+	raise TypeError(f'Unrecognized type in function {function_name!r}')
+	# Java type? Navigate here and search for 'java.sql.Types': https://docs.oracle.com/javase/8/docs/api/constant-values.html
+	#
+	# LONGNVARCHAR -16, NCHAR -15, NVARCHAR -9, ROWID -8, BIT -7, TINYINT -6,
+	# BIGINT -5, LONGVARBINARY -4, VARBINARY -3, BINARY -2, LONGVARCHAR -1,
+	# NULL 0, CHAR 1, NUMERIC 2, DECIMAL 3, INTEGER 4, SMALLINT 5, FLOAT 6,
+	# REAL 7, DOUBLE 8, VARCHAR 12, BOOLEAN 16, DATALINK 70, DATE 91, TIME 92,
+	# TIMESTAMP 93, OTHER 1111, JAVA_OBJECT 2000, DISTINCT 2001, STRUCT 2002,
+	# ARRAY 2003, BLOB 2004, CLOB 2005, REF 2006, SQLXML 2009, NCLOB 2011,
+	# REF_CURSOR 2012, TIME_WITH_TIMEZONE 2013, TIMESTAMP_WITH_TIMEZONE 2014
 
-def _to_date(rs, col): # -> (java.sql.date | None):
-	'''Returns a java.sql.date object'''
-	return rs.getDate(col)
-
-def _to_time(rs, col): # -> (java.sql.Time | None):
-	'''Returns a java.sql.Time object'''
-	return rs.getTime(col)
-
-def _to_time_with_timezone(rs, col): # -> (java.time.OffsetTime | None):
-	'''Returns a java.time.OffsetTime object'''
-	return rs.getObject(col)
-
-def _to_datetime(rs, col): # -> (java.sql.Timestamp | None):
-	'''Returns a java.sql.Timestamp object'''
-	return rs.getTimestamp(col)
-
-def _to_datetime_with_timezone(rs, col): # -> (java.time.OffsetDateTime | None):
-	'''Returns a java.time.OffsetDateTime object'''
-	return rs.getObject(col)
-
-def _update_jaydebeapi_mappings(m: ModuleType, hsqldb_type_name: str):
-	""" Add a mapping to jaydebeapi's DBAPITypeObject._mappings dictionary, but only if the mapping is missing. """
-	if hsqldb_type_name in m.DBAPITypeObject._mappings:
-		return
-	m.DBAPITypeObject(hsqldb_type_name)
-
+# TODO: The above function can be removed when all types have been identified.
 
 dialect = HyperSqlDialect_jaydebeapi
 # Currently troubleshooting a plug-in loading issue.
