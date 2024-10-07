@@ -580,9 +580,8 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i render_literal_value; sql; my; pg
 	def render_literal_value(self, value, type_):
-		# raise NotImplementedError('xxx: render_literal_value')
 		value = super().render_literal_value(value, type_)
-		breakpoint() #-
+		# breakpoint() #-
 		return value
 		# return super().render_literal_value(value, type_)
 	# TODO: inherit method from base class if behaviour is unchanged.
