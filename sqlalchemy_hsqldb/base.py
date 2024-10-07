@@ -1305,13 +1305,11 @@ Identifier length must be between 1 and 128 characters.
 # TODO: Implement HyperSqlExecutionContext. About 55-165 lines, 2-8 methods.
 class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	def __init__(self):
-		print('#3' * 10, 'inside HyperSqlExecutionContext.__init__ method')
 		assert False, 'Does a HyperSqlExecutionContext object get instantiated?'
 	# TODO: remove __init__ method if this class is never instantiated.
 
 #j create_server_side_cursor ; dec ; my ; my_ma ; pgc ; pg_a ; pg_pg8 ; sl_a
 	def create_server_side_cursor(self):
-		print('### HyperSqlexecutionContext.create_server_side_cursor') #-
 		if self.dialect.supports_server_side_cursors:
 			return self._dbapi_connection.cursor() # TODO: are any params required?
 		else:
