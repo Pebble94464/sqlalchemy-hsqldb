@@ -250,53 +250,29 @@ class _TIME(sqltypes.TIME):
 		use HyperSQL's ``TIME`` datatype.
 		"""
 		# TODO: update description above
-		print('### hsqldb _TIME constructor') #-
-		# breakpoint() #-
 		super().__init__(timezone=timezone)
 		#- timezone is a member of sqltypes.Time class
 
-	def bind_processor(self, dialect):
-		print('### hsqldb TIME bind_processor') #-
-		def process(value):
-			if type(value) != datetime.time:
-				return None
+	def get_dbapi_type(self, dbapi):
+		assert True, 'get_dbapi_type: When does this function get called? '
+		return dbapi.TIME
+	# TODO: Remove the assertion when the purpose of this method is understood.
 
-			# Check for precision loss...			
+	def bind_processor(self, dialect):
+		def process(value):
+			assert isinstance(value, datetime.time), 'time for tellytubbies' #-
+
 			if value.microsecond % 1000 > 0:
 				print('# Warning: potential precision loss while converting from microseconds to milliseconds')
-			# TODO: How to handle precision loss, log warning?
+			# TODO: How best to show potential precision loss, log warning?
 
-			JTime = JClass('java.sql.Time', False)
-			milliseconds = \
-				(value.hour * 60 * 60 +\
-				value.minute * 60 +\
-				value.second) * 1000 +\
-				int(value.microsecond / 1000) # The conversion from microsecond to millisecond will cause precision loss.
-
-			# When HSQLDB org.hsqldb.jdbc.JDBCPreparedStatement setXXX methods
-			# are called, time values are adjusted for timezone and DST.
-			# This is documented for TIME | TIMESTAMP WITH TIME ZONE,
-			# and also seems to be the case for TIME WITHOUT TIME ZONE.
-
-			# Make an adjustment to counter HSQLDB's adjustment...
-			a = JvmTimezone.get_dst_savings()
-			b = JvmTimezone.get_offset()
-			milliseconds -= (a + b)
-
-			return JTime(milliseconds)
+			return dialect.dbapi.Time(
+				value.hour,
+				value.minute,
+				value.second
+				)
 		return process
 		# TODO: test with other timezone / dst combinations, like -4 hrs UTC Atlantic time (Canada), with and without DST.
-
-	def result_processor(self, dialect, coltype):
-		print('### hsqldb _TIME result_processor')
-		def processor(value):
-			assert str(value.__class__) == "<java class 'java.sql.Time'>"
-			hours = value.getHours()
-			minutes = value.getMinutes()
-			seconds = value.getSeconds()
-			microseconds = value.getTime() % 1000 * 1000
-			return dt.time(hours, minutes, seconds, microseconds)
-		return processor
 
 class TIMESTAMP(sqltypes.TIMESTAMP):
 	__visit_name__ = 'TIMESTAMP'
