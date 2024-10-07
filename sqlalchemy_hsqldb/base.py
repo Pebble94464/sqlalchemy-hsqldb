@@ -190,15 +190,6 @@ class HyperSqlBoolean(types.BOOLEAN):
 			return bool(value)
 		return process
 
-class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by colspecs
-	__visit_name__ = "_HyperBoolean"
-	#- def __init__(self):
-
-	#- TODO: remove Oracle function below...
-	def get_dbapi_type_oracle(self, dbapi):
-		return dbapi.NUMBER
-
-
 class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 	__visit_name__ = 'TIME'
 	#- Visit methods are compiler methods. When TIME(timezone=True) is specified, we want to emit a TIME_WITH_TIME_ZONE
@@ -387,7 +378,6 @@ colspecs = {
 	# sqltypes.BINARY: JDBCBlobClient2,
 	# sqltypes.PickleType: JDBCBlobClient,
 	# sqltypes.ARRAY: _array.ARRAY,
-	#sqltypes.Boolean: _HyperBoolean, #- TODO: remove mapping, and the class itself. Behavior doesn't differ
 	# sqltypes.Date: _OracleDate,
 	# sqltypes.DateTime: _MSDateTime,
 	# sqltypes.Enum: ENUM,
@@ -1228,17 +1218,6 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 # TODO: Implement HyperSqlTypeCompiler. About 50-150 lines, 12-25 methods.
 # TODO: Solve mystery. Access dialect has 'type_compiler', others have 'type_compiler_cls'
 class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
-
-	# TODO: remove visit_Boolean below...
-	def visit_Boolean_X(self, type_, **kw):
-		# TODO: This function is not called. Remove it.
-		raise NotImplementedError
-		return _HyperBoolean.__visit_name__
-
-	# TODO: remove visit_BOOLEAN below...
-	def visit_BOOLEAN_X(self, type_, **kw):
-		# This function gets called for Boolean and BOOLEAN, but duplicates the default BOOLEAN behaviour, so remove it.
-		return _HyperBoolean.__visit_name__
 
 	def visit_TIMESTAMP(self, type_, **kw):
 		if type_.timezone == True:
