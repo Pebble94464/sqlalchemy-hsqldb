@@ -365,15 +365,6 @@ colspecs = {
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
 
-	sqltypes.Date: _Date,
-	#- A tests fail if the above line isn't included. It seems the bind processor for _Date doesn't get called.
-	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_null_bound_comparison
-	#- 	pytest -rP --db hsqldb test/test_suite.py::DateTest::test_select_direct
-
-	sqltypes.DateTime: TIMESTAMP,
-
-	# sqltypes.TIMESTAMP: TIMESTAMP, # 
-
 	# sqltypes.BLOB: JDBCBlobClient,
 	# sqltypes.BINARY: JDBCBlobClient2,
 	# sqltypes.PickleType: JDBCBlobClient,
