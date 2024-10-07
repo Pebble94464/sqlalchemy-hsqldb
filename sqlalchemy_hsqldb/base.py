@@ -283,13 +283,25 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 		:param timezone: boolean.  Indicates that the TIMESTAMP type should
 		use HyperSQL's ``TIMESTAMP WITH TIME ZONE`` datatype.
 		"""
-		# TODO: update description above
-		print('### hsqldb TIMESTAMP constructor') #-
 		super().__init__(timezone=timezone)
 	# TODO: implement support for 'precision'. Defaults to 6 for timestamps.
-	#- Note that none of the other dialects define a bind or results processor for TIMESTAMP.
+	#- Note that no other dialects define a bind or results processor for TIMESTAMP.
 
 	def bind_processor(self, dialect):
+		def processor(value):
+			if type(value) != datetime.datetime:
+				return None
+			year = value.year - 1900
+			month = value.month - 1
+			day = value.day
+			hour = value.hour
+			minute = value.minute
+			second = value.second
+			nano = value.microsecond * 1000
+			JTimestamp = JClass('java.sql.Timestamp', False)
+			return JTimestamp(year, month, day, hour, minute, second, nano)
+		return processor
+
 class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
 	__visit_name__ = 'TIMESTAMP'
 
