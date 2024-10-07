@@ -204,29 +204,25 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 	#- Visit methods are compiler methods. When TIME(timezone=True) is specified, we want to emit a TIME_WITH_TIME_ZONE
 
 	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
-		#- Note the default setting for timezone is set to True for this 'TIME WITH TIME ZONE' type.
+		#- Note timezone must be set to True for TIME WITH TIME ZONE.
 		"""
 		Construct a new :class:`_hsqldb._TIME_WITH_TIME_ZONE`.
 		:param timezone: boolean.  Indicates that the TIME type should
 		use HyperSQL's ``TIME WITH TIME ZONE`` datatype.
 		"""
 		# TODO: update description above
-		print('### hsqldb _TIME_WITH_TIME_ZONE constructor') #-
 		super().__init__(timezone=timezone)
-		#- timezone is a member of sqltypes.Time class
-		# TODO: impl precision param for hsqldb's TIME class
 
 	def bind_processor(self, dialect):
 		#- sends datatype to database
-		print('### hsqldb _TIME_WITH_TIME_ZONE bind_processor intercepted called')
-		assert self.timezone == True, "Timezone must be True for type TIME WITH TIME ZONE" # I assume it's set when the object is initialised, correct?
+		assert self.timezone == True, "Timezone must be True for type TIME WITH TIME ZONE"
 
 		def process(value):
 			""" convert datetime.time to java.time.OffsetTime """
 			# <java class 'java.time.OffsetTime'>
+			if value == None:
+				return value
 			assert isinstance(value, datetime.time), 'Expecting value to be a datetime.time'
-			# if type(value) != datetime.time:
-			# 	return None
 			hour = value.hour
 			minute = value.minute
 			second = value.second
@@ -238,56 +234,6 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 			#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
 			return JOffsetTime.of(hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
 		return process
-
-	def result_processor(self, dialect, coltype):
-		#- Retrieves datatype from db
-		print('### hsqldb TIME WITH TIME ZONE result_processor') #-
-		def process(value):
-			"""Convert java.time.OffsetTime to datetime.datetime"""
-			print('### hsqldb TIME WITH TIME ZONE, _java_time_offsettime_TO_datetime function')
-			breakpoint() #-
-			if not value:
-				return None
-			assert str(value.__class__) ==  "<java class 'java.time.OffsetTime'>"
-			hour = value.getHour()
-			minute = value.getMinute()
-			second = value.getSecond()
-			microsecond = int(value.getNano() / 1000)
-			zone_offset = value.getOffset() # <java class 'java.time.ZoneOffset'>
-			offset_seconds = zone_offset.getTotalSeconds()
-			tzinfo1 = dt.timezone(dt.timedelta(seconds=offset_seconds))
-			return dt.time(hour, minute, second, microsecond, tzinfo=tzinfo1)
-		return process
-
-
-
-class JvmTimezone:
-	_dst_savings = None
-	_raw_offset = None
-
-	@staticmethod
-	def _initialize():
-		JTimeZone = JClass('java.util.TimeZone', False)
-		# Get the default TimeZone of the Java virtual machine...
-		zone_info = JTimeZone.getDefault() # <java class 'sun.util.calendar.ZoneInfo'>
-		JvmTimezone._raw_offset = zone_info.getRawOffset()
-		JvmTimezone._dst_savings = zone_info.getDSTSavings()
-		del zone_info
-
-	@staticmethod
-	def get_offset():
-		if JvmTimezone._raw_offset == None:
-			JvmTimezone._initialize()
-		assert JvmTimezone._raw_offset != None
-		return JvmTimezone._raw_offset
-
-	@staticmethod
-	def get_dst_savings():
-		if JvmTimezone._dst_savings == None:
-			JvmTimezone._initialize()
-		assert JvmTimezone._dst_savings != None
-		return JvmTimezone._dst_savings
-
 
 class _TIME(sqltypes.TIME):
 	__visit_name__ = 'TIME'
@@ -593,7 +539,7 @@ ischema_names = {
 
 	#- hsqldb uses two different types for time with and without timezone, i fink, so...
 	"TIME": _TIME,  # TODO: ensure class name follows naming convension
-	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,  # TODO: ensure class name follows naming convension
+	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,
 
 	"TIMESTAMP": TIMESTAMP,
 	"TIMESTAMP WITH TIME ZONE": TIMESTAMP,
