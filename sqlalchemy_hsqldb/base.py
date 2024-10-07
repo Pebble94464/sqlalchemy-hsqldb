@@ -343,26 +343,7 @@ class _Date(sqltypes.Date):
 		return super().literal_processor(dialect)
 		# TODO: impl _Date literal processor if needed.
 
-class _DateTime(sqltypes.DateTime):
-	__visit_name__ = "DATETIME"
-
-	def result_processor(self, dialect, coltype):
-		print('### _DateTime result_processor')
-		return super().result_processor(dialect, coltype)
-
-	def bind_processor(self, dialect):
-		print('### _DateTime bind_processor')
-		breakpoint() #-
-		return super().bind_processor(dialect)
-
-	def literal_processor(self, dialect):
-		print('### _DateTime literal_processor')
-		breakpoint() #-
-		return super().literal_processor(dialect)
-
-
-
-# WIP: what are colspecs?
+# What are colspecs?
 #		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
 #		"colspecs" is a required Dialect class member according to type_migration_guidelines.txt
 
