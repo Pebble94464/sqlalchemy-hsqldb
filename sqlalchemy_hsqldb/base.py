@@ -337,20 +337,9 @@ class _Date(sqltypes.Date):
 			return JDate(year, month, day)
 		return processor
 
-	def result_processor(self, dialect, coltype):
-		def process(value):
-			if value is None:
-				return None
-			assert str(value.__class__) == "<java class 'java.sql.Date'>", 'java.sql.Date object expected' #-
-			year = value.getYear() + 1900
-			month = value.getMonth() + 1
-			day = value.getDate()
-			return dt.date(year, month, day)
-		return process
-
 	def literal_processor(self, dialect):
-		print('### _Date literal_processor')
-		breakpoint() #- When is this method called and does it produce a correct result?
+		# print('### _Date literal_processor') #-
+		# breakpoint() #- When is this method called and does it produce a correct result? test/test_suite.py::DateTest_hsqldb+jaydebeapi_2_7_2::test_literal
 		return super().literal_processor(dialect)
 		# TODO: impl _Date literal processor if needed.
 
