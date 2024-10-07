@@ -359,7 +359,7 @@ class _Date(sqltypes.Date):
 #		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
 #		"colspecs" is a required Dialect class member according to type_migration_guidelines.txt
 
-# 'colspecs' seems to map sqltypes to types defined in the dialect's types.py file.
+# 'colspecs' maps sqltypes to types defined in the dialect's types.py file.
 # default.DefaultDialect.colspecs: MutableMapping[Type[TypeEngine[Any]], Type[TypeEngine[Any]]] = {}
 #
 # type_migration_guidelines.txt reads...
@@ -369,10 +369,6 @@ class _Date(sqltypes.Date):
 #		indicate a special type only available in this database, it must be *removed* from the 
 #		module and from this dictionary.
 #
-
-# Map SQLAlchemy types to HSQLDB dialect types.
-# Note:	If a type doesn't specify any special behavior for bind_processor() or result_processor() and does not indicate
-#		a special type only available in this database, it must be *removed* from the module and from this dictionary.
 colspecs = {
 	# sqltypes.LargeBinary: JDBCBlobClient,
 	sqltypes.LargeBinary: _LargeBinary,
@@ -421,6 +417,8 @@ colspecs = {
 #
 # The Access dialect uses INFORMATION_SCHEMA.COLUMNS.DATA_TYPE
 #
+#- The values in ischema_names are subsequently assigned to the 'type' attribute of the object returned by get_columns.
+#-
 ischema_names = {
 
 	# TODO: Mapping BLOB to sqltypes.BLOB is probably the correct way to do it. 
@@ -1326,6 +1324,7 @@ All keywords can be used with double quotes as identifiers.
 Identifiers must begin with a letter.
 Setting 'SET DATABASE SQL REGULAR NAMES FALSE' relaxes the rules and allows
 identifiers to begin with an underscore '_', and include dollar signs in the name.
+Observed that quoted identifiers can begin with underscores.
 
 Identifier length must be between 1 and 128 characters.
 
