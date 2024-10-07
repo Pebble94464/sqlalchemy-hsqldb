@@ -2637,7 +2637,6 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def do_set_input_sizes(
 	#- def do_set_input_sizes( # inherit from Dialect
 	def do_set_input_sizes(self, cursor, list_of_tuples, context):
-		print('### do_set_input_sizes')
 		#- TODO: adapt or remove this function as required. Copied from cx_oracle.py.
 		#- This function is called when dialect.bind_typing is BindTyping.SETINPUTSIZES
 		#- JayDeBeApi's cursor.setinputsizes method is currently empty / undefined.
