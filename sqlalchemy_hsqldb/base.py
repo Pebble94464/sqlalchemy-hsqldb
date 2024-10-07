@@ -314,88 +314,34 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 	#- Note that none of the other dialects define a bind or results processor for TIMESTAMP.
 
 	def bind_processor(self, dialect):
-		#- used when sending data to the db.
-		print('### hsqldb TIMESTAMP bind_processor') #-
+class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
+	__visit_name__ = 'TIMESTAMP'
 
-		if self.timezone == False:
-			return self._bind_processor_timestamp
-		else:
-			return self._bind_processor_offsetdatetime
+	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
+		super().__init__(timezone=timezone)
 
-	def _bind_processor_timestamp(self, value):
-		if type(value) != datetime.datetime:
-			return None
-		year = value.year - 1900
-		month = value.month - 1
-		day = value.day
-		hour = value.hour
-		minute = value.minute
-		second = value.second
-		nano = value.microsecond * 1000
-		JTimestamp = JClass('java.sql.Timestamp', False)
-		return JTimestamp(year, month, day, hour, minute, second, nano)
-
-	def _bind_processor_offsetdatetime(self, value):
-		if type(value) != datetime.datetime:
-			return None
-		year = value.year
-		month = value.month
-		day = value.day
-		hour = value.hour
-		minute = value.minute
-		second = value.second
-		nano = value.microsecond * 1000
-		timedelta = value.tzinfo.utcoffset(None)
-		JOffsetDateTime = JClass('java.time.OffsetDateTime', False)
-		#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html
-		JZoneOffset = JClass('java.time.ZoneOffset')
-		#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
-		return JOffsetDateTime.of(year, month, day, hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
-
-	def result_processor(self, dialect, coltype):
-		#- used when retrieving data from the db
-		print('### TIMESTAMP result_processor') #-
-
-		if 'TIMESTAMP_WITH_TIMEZONE' in coltype.values:
-			# <java class 'java.time.OffsetDateTime'>
-			# TODO:3: Can we compare using the type's numerical value (2014) instead of its string?
-			return self._java_time_offsetdatetime_TO_datetime
-		else:
-			# <java class 'java.sql.Timestamp'>
-			return self._java_sql_datetime_TO_datetime
-
-	def _java_time_offsetdatetime_TO_datetime(self, value):
-		"""Convert java.time.OffsetDateTime to datetime.datetime"""
-		print('### _java_time_offsetdatetime_TO_datetime') #-
-		if value is None:
-			return value
-		year = value.getYear()
-		month = value.getMonthValue()
-		day = value.getDayOfMonth()
-		hour = value.getHour()
-		minute = value.getMinute()
-		second = value.getSecond()
-		microsecond = int(value.getNano() / 1000)
-		zone_offset = value.getOffset() # <java class 'java.time.ZoneOffset'>
-		offset_seconds = zone_offset.getTotalSeconds()
-		tzinfo1 = dt.timezone(dt.timedelta(seconds=offset_seconds))
-		return dt.datetime(year, month, day, hour, minute, second, microsecond, tzinfo=tzinfo1)
-	# TODO: This conversion function is fairly generic. Consider making it global instead of a class member function. Is it used elsewhere?
-
-	def _java_sql_datetime_TO_datetime(self, value):
-		"""Convert java.sql.datetime to datetime.datetime"""
-		print('### _java_sql_datetime_TO_datetime') #-
-		if value is None:
-			return value
-		year = value.getYear() + 1900
-		month = value.getMonth() + 1
-		day = value.getDate()
-		hours = value.getHours()
-		minutes = value.getMinutes()
-		seconds = value.getSeconds()
-		microseconds = int(value.getNanos() / 1000)
-		return dt.datetime(year, month, day, hours, minutes, seconds, microseconds)
-	# TODO: This conversion function is fairly generic. Consider making it global instead of a class member function. Is it used elsewhere?
+	def bind_processor(self, dialect):
+		def processor(value):
+			if type(value) != datetime.datetime:
+				return None
+			assert isinstance(value, datetime.datetime), 'Expecting a datetime.datetime object'
+			year = value.year
+			month = value.month
+			day = value.day
+			hour = value.hour
+			minute = value.minute
+			second = value.second
+			nano = value.microsecond * 1000
+			timedelta = value.tzinfo.utcoffset(None)
+			JOffsetDateTime = JClass('java.time.OffsetDateTime', False)
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html
+			JZoneOffset = JClass('java.time.ZoneOffset')
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
+			return JOffsetDateTime.of(year, month, day, hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
+		return processor
+	# HSQLDB uses java.time.OffsetDateTime to store timestamps with a timezone.
+	# This class is required so we can set timezone to True, and have the bind
+	# processor return an OffsetDateTime object.
 
 class _Date(sqltypes.Date):
 	__visit_name__ = "DATE"
