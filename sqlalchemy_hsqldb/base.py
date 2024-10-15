@@ -1332,6 +1332,24 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 #j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
 	def handle_dbapi_exception(self):
 		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
+	def get_out_parameter_values(self, out_param_names):
+		# this method should not be called when the compiler has
+		# RETURNING as we've turned the has_out_parameters flag set to
+		# False.
+		if len(out_param_names) > 0:
+			breakpoint() # Looking for an example of when this is called.
+		# TODO: remove if block when usage of an out param is found and tested.
+		assert not self.compiled.returning
+		return [
+			self.dialect._paramval(self.out_parameters[name])
+			for name in out_param_names
+		]
+	# HSQLDB supports IN, OUT, and INOUT parameters for procedures, so we may
+	# need to implement this method. The one above is based on Oracle's.
+	# See (https://hsqldb.org/doc/guide/sqlroutines-chapt.html)
+	# This method is called when HyperSqlExecutionContext.has_out_parameters
+	# is set to True.
+
 		raise NotImplementedError
 
 #j post_exec ; ec ; dec ; ms ; ms_py ; my_ma ; o_cx ; pgc_p2

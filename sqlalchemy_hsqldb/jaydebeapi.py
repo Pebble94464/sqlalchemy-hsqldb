@@ -61,8 +61,9 @@ class HyperSqlExecutionContext_jaydebeapi(HyperSqlExecutionContext):
 		raise NotImplementedError
 
 #j get_out_parameter_values ; ec ; dec ; o_cx
-	def get_out_parameter_values(self):
-		raise NotImplementedError
+	def get_out_parameter_values(self, out_param_names):
+		return super().get_out_parameter_values(out_param_names)
+	# TODO: remove this override if unused
 
 #j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
 	def handle_dbapi_exception(self):
