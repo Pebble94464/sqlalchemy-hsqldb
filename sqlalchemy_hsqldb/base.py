@@ -193,6 +193,7 @@ class HyperSqlBoolean(types.BOOLEAN):
 class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 	__visit_name__ = 'TIME'
 	#- Visit methods are compiler methods. When TIME(timezone=True) is specified, we want to emit a TIME_WITH_TIME_ZONE
+	render_bind_cast = True
 
 	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
 		#- Note timezone must be set to True for TIME WITH TIME ZONE.
@@ -228,6 +229,8 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 
 class _TIME(sqltypes.TIME):
 	__visit_name__ = 'TIME'
+	render_bind_cast = True
+
 	# HSQLDB's TIME datatype has a precision setting, but it seems to have no effect,
 	# and fractions of a second the underlying java.sql.Time are stored in milliseconds,
 	# which are less precise than the microseconds used for datetime.
@@ -265,8 +268,19 @@ class _TIME(sqltypes.TIME):
 		return process
 		# TODO: test with other timezone / dst combinations, like -4 hrs UTC Atlantic time (Canada), with and without DST.
 
+
+class INTEGER(sqltypes.INTEGER):
+	render_bind_cast = True
+
+	def __init__(self, *args):
+		if len(args) > 0:
+			breakpoint() #-
+		super().__init__(*args)
+# PG dialect sets 'render_bind_cast = True' on many types, if not all. Yet it's colspecs dictionary is lighter than I expected.
+
 class TIMESTAMP(sqltypes.TIMESTAMP):
 	__visit_name__ = 'TIMESTAMP'
+	render_bind_cast = True
 
 	def __init__(self, timezone: bool = False, precision: Optional[int] = None):
 		"""
@@ -295,6 +309,7 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 
 class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
 	__visit_name__ = 'TIMESTAMP'
+	render_bind_cast = True
 
 	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
 		super().__init__(timezone=timezone)
@@ -324,9 +339,7 @@ class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
 
 class _Date(sqltypes.Date):
 	__visit_name__ = "DATE"
-
-	render_bind_cast = True #rbc1
-	# TODO: The line above depends on the bind_typing setting. Remove if unused.
+	render_bind_cast = True
 
 	def bind_processor(self, dialect):
 		def processor(value):
@@ -360,10 +373,19 @@ class _Date(sqltypes.Date):
 #		indicate a special type only available in this database, it must be *removed* from the 
 #		module and from this dictionary.
 #
+# Setting 'render_bind_cast = True' on types has no effect unless the type is included in colspecs,
+# which potentially leads to many types needing to be included in the colspecs dictionary.
+# Other dialects appear to have few entries in the colspecs dictionary. Am I doing something wrong?
+#
 colspecs = {
 	# sqltypes.LargeBinary: JDBCBlobClient,
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
+
+	sqltypes.Date: _Date,
+	sqltypes.DateTime: TIMESTAMP, 	# How to separate TIMESTAMPS with and without timezones?
+	sqltypes.Time: _TIME,
+	sqltypes.Integer: INTEGER,
 
 	# sqltypes.BLOB: JDBCBlobClient,
 	# sqltypes.BINARY: JDBCBlobClient2,
@@ -436,6 +458,9 @@ ischema_names = {
 #- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 class HyperSqlCompiler(compiler.SQLCompiler):
 #- compiler.SQLCompiler methods that are commonly inherited by dialects have been stubbed below.
+
+	has_out_parameters = True
+	#- has_out_parameters should be set to true because HSQLDB supports OUT params
 
 #i __init__; sql; ms; ora
 	def __init__(self, *args, **kwargs):
@@ -549,9 +574,30 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i label_select_column; ms
 
+	def decorator_disable_bind_casts(f):
+		''' A decorator to disable the rendering of casts for bound types. '''
+		# Bind typing for this dialect is set to RENDER_CASTS.  Applying this
+		# setting causes all bound parameters to be cast, which is not what not
+		# necessarily what we want. For example HSQLDB will error if we attempt
+		# to cast a value on a limit clause.
+		def inner_func(*args, **kwargs):
+			self = args[0]
+			assert isinstance(self, HyperSqlCompiler), 'Decorator can only be used on HyperSqlCompiler methods'
+
+			self.dialect._bind_typing_render_casts = False
+			result = f(*args, **kwargs)
+			self.dialect._bind_typing_render_casts = True
+			return result
+		return inner_func
+	# TODO: Review code. What's the proper way to define decorators for use with class methods?
+	# TODO: Consider in-lining code if it's used in not other place than limit_clause.
+
 #i limit_clause; sql; ms; my; ora; pg
+	@decorator_disable_bind_casts
 	def limit_clause(self, select, **kw):
-		#- raise NotImplementedError
+		# HSQLDB 2.7.2 doesn't support the casting of bound parameters for
+		# limit clauses. Use decorator_disable_bind_casts.
+
 		text = ""
 		if select._limit_clause is not None:
 			text += " \n LIMIT " + self.process(select._limit_clause, **kw)
@@ -565,28 +611,35 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	#- def order_by_clause(self, select, **kw): # Inherit from compiler.SQLCompiler
 	#- 	raise NotImplementedError('xxx: order_by_clause')
 
+	#- def visit_values(self, element, asfrom=False, from_linter=None, **kw):
+	def visit_values(self, element, **kw):
+		return super().visit_values(element, **kw)
+	#- 'asfrom' in **kw seems to determine whether the VALUES statement is rendered in a subquery or not.
+	# TODO: remove if unused
+
+	def visit_bindparam(self, *args, **kwargs):
+		return super().visit_bindparam(*args, **kwargs)
+	# TODO: remove if unused.
+
 #i render_bind_cast; sql; pg
 	def render_bind_cast(self, type_, dbapi_type, sqltext):
-		return f"""{
+		return f"""CAST({sqltext} AS {
 				self.dialect.type_compiler_instance.process(
 					dbapi_type, identifier_preparer=self.preparer
-				)
-			} {sqltext}"""
-	# 'render_bind_cast' gets called when HyperSqlDialect.bind_typing = BindTyping.BIND_CASTS
-	# 'render_bind_cast' is not implemented in the base.
-	# 'render_bind_cast' is specialised by the postgresql dialect.
-	# An alternative is BindingTyping.SETINPUTSIZES, which doesn't appear to be supported by JPype.
-	# TODO: investigate if render_bind_cast is appropriate for HSQLDB, or remove this method if unused.
+				)})"""
+
+	#- def render_literal_bindparam(self, bindparam, render_literal_value=NO_ARG, bind_expression_template=None, **kw,):
+	def render_literal_bindparam(self, bindparam, **kwargs):
+		return super().render_literal_bindparam(bindparam, **kwargs)
+	# TODO: remove if unused
 
 #i render_literal_value; sql; my; pg
 	def render_literal_value(self, value, type_):
 		value = super().render_literal_value(value, type_)
-		# breakpoint() #-
 		return value
-		# return super().render_literal_value(value, type_)
-	# TODO: inherit method from base class if behaviour is unchanged.
 	# HSQLDB literal values can be specified by proceeding values with a
 	# datatype, e.g. `SELECT c1 FROM (VALUES(DATE '1996-07-01'))`
+	# TODO: inherit method from base class if behaviour is unchanged.
 
 #i returning_clause; sql; ms; ora
 	def returning_clause(self, stmt, returning_cols, *, populate_result_map, **kw, ) -> str:
@@ -595,7 +648,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i translate_select_structure; ms; ora
 	def translate_select_structure(self, select_stmt, **kwargs):
 
-		# Translate 'SELECT ?' to 'SELECT * ( VALUES(?) )'
+		# HSQLDB 2.7.2 doesn't support direct selections, but we can work
+		# around this limitation by using a values clause inside a subquery,
+		# i.e. translate 'SELECT ?' to 'SELECT * ( VALUES(?) )'
 		froms = self._display_froms_for_select(
 			select_stmt, kwargs.get("asfrom", False))
 		if len(froms) == 0:
@@ -608,7 +663,6 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 					])])
 			restructured_select = select('*').select_from(vals)
 			return restructured_select
-
 		return select_stmt
 
 #i update_from_clause; sql; ms; my; pg
@@ -1800,12 +1854,26 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  """internal evaluation for supports_statement_cache"""
 
 #i  bind_typing = BindTyping.NONE; define a means of passing typing information to the database and/or driver for bound parameters.
-	if True:
-		bind_typing = BindTyping.NONE
-	else:
-		bind_typing = BindTyping.SETINPUTSIZES
-		bind_typing = BindTyping.RENDER_CASTS
-	# TODO: Which bind typing should HSQLDB use? See JSN_Notes on 'Bind Typing'
+	bind_typing = BindTyping.RENDER_CASTS
+	# bind_typing = BindTyping.NONE
+	# When bind_typing is set to render casts it seems every occurance of a
+	# bound type is explicitly cast, which is not necessarily what we want.
+	# For example, we want to cast bound parameters inside a VALUES clause,
+	# but not a LIMIT clause. We want to disable casting for limit clauses.
+	# 
+	# Internally the dialect property '_bind_typing_render_casts' is checked to
+	# determine whether or not to render a cast.
+	#
+	# (In case you're thinking there's an alternative way to disable casts, by
+	# setting bind_typing = BindTyping.NONE for specific clauses, it doesn't
+	# work. I've already tried.)
+	# 
+	# There's more than one way to skin a cat... If we've set bind_typing to
+	# NONE instead of RENDER_CASTS, no bound types will be cast and we will
+	# then need to enable casting for specific clauses like VALUES.
+	#
+	# TODO: Is it better to default to BindTyping.RENDER_CASTS or BindTyping.NONE?  Currently undecided.
+
 
 #i  is_async: bool; # """Whether or not this dialect is intended for asyncio use."""
 	is_async = False
@@ -2655,6 +2723,7 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  def do_set_input_sizes(
 	#- def do_set_input_sizes( # inherit from Dialect
 	def do_set_input_sizes(self, cursor, list_of_tuples, context):
+		raise NotImplementedError()
 		#- TODO: adapt or remove this function as required. Copied from cx_oracle.py.
 		#- This function is called when dialect.bind_typing is BindTyping.SETINPUTSIZES
 		#- JayDeBeApi's cursor.setinputsizes method is currently empty / undefined.
