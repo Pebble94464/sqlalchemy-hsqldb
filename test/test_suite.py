@@ -10,7 +10,8 @@
 # then disable them as appropriate.
 #
 # TODO: remove tests that have been commented out.
-
+# TODO: implement tests for TIME_WITH_TIMEZONE, similar to TIME tests.
+# TODO: implement tests for TIMESTAMP_WITH_TIMEZONE, similar to TIMESTAMP or DATETIME tests.
 
 # Import the entire test suite...
 from sqlalchemy.testing.suite import *
