@@ -75,6 +75,7 @@ from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import quoted_name
 from sqlalchemy import BindTyping
+from sqlalchemy import cast
 from sqlalchemy import exc
 from sqlalchemy import schema
 from sqlalchemy import select
@@ -1383,9 +1384,6 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	def get_lastrowid(self):
 		raise NotImplementedError
 
-#j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
-	def handle_dbapi_exception(self):
-		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
 	def get_out_parameter_values(self, out_param_names):
 		# this method should not be called when the compiler has
 		# RETURNING as we've turned the has_out_parameters flag set to
@@ -1404,18 +1402,21 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	# This method is called when HyperSqlExecutionContext.has_out_parameters
 	# is set to True.
 
-		raise NotImplementedError
+#j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
+	def handle_dbapi_exception(self, e):
+		return super().handle_dbapi_exception(e)
+	# TODO: inherit if unused
 
 #j post_exec ; ec ; dec ; ms ; ms_py ; my_ma ; o_cx ; pgc_p2
 	def post_exec(self):
 		# print('### HypereSqlExecutionContext.post_exec') #-
-		super().post_exec()
+		return super().post_exec()
 	# TODO: just inherit if unused
 
 #j pre_exec ; ec ; dec ; ms ; ms_py ; o ; o_cx ; pg_a ; pg_pg8
 	def pre_exec(self):
 		# print('### HypereSqlExecutionContext.pre_exec') #-
-		super().pre_exec()
+		return super().pre_exec()
 	# TODO: inherit if unused
 
 #j rowcount ; dec ; ms ; my_ma ; my_my
