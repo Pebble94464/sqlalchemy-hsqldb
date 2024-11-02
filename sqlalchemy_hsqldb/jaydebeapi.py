@@ -16,7 +16,7 @@ import datetime as dt
 class HyperSqlExecutionContext_jaydebeapi(HyperSqlExecutionContext):
 #j create_cursor ; ec ; dec ; o_cx
 	def create_cursor(self):
-		print('### HyperSqlExecutionContext_jaydebeapi.create_cursor') #-
+		# print('### HyperSqlExecutionContext_jaydebeapi.create_cursor') #-
 		# c = self._dbapi_connection.cursor() # DefaultExecutionContext._dbapi_connection
 		# return c
 		# breakpoint() #-
@@ -46,7 +46,7 @@ class HyperSqlExecutionContext_jaydebeapi(HyperSqlExecutionContext):
 
 #j create_server_side_cursor ; dec ; my ; my_ma ; pgc ; pg_a ; pg_pg8 ; sl_a
 	def create_server_side_cursor(self):
-		print('### HyperSqlexecutionContext_jaydebeapi.create_server_side_cursor') #- This defo fires!
+		# print('### HyperSqlexecutionContext_jaydebeapi.create_server_side_cursor') #- This defo fires!
 		# return HyperSqlExecutionContext.create_server_side_cursor(self)
 		return super().create_server_side_cursor()
 		# raise NotImplementedError
@@ -66,8 +66,6 @@ class HyperSqlExecutionContext_jaydebeapi(HyperSqlExecutionContext):
 	# TODO: remove this override if unused
 
 #j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
-	def handle_dbapi_exception(self):
-		raise NotImplementedError
 
 #j post_exec ; ec ; dec ; ms ; ms_py ; my_ma ; o_cx ; pgc_p2
 	def post_exec(self):
