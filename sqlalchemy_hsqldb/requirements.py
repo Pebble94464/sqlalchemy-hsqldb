@@ -1780,6 +1780,6 @@ class HyperSqlRequirements(SuiteRequirements):
         """Target database reflect MATERIALIZED VIEWs pks."""
         return exclusions.closed()
 
-# TODO: delete this comment 9
+# TODO: delete this comment 10
 
 
