@@ -76,7 +76,9 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import quoted_name
 from sqlalchemy import BindTyping
 from sqlalchemy import cast
+from sqlalchemy import column
 from sqlalchemy import exc
+from sqlalchemy import exists
 from sqlalchemy import schema
 from sqlalchemy import select
 from sqlalchemy import util
@@ -648,13 +650,15 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i translate_select_structure; ms; ora
 	def translate_select_structure(self, select_stmt, **kwargs):
-
 		# HSQLDB 2.7.2 doesn't support direct selections, but we can work
 		# around this limitation by using a values clause inside a subquery,
 		# i.e. translate 'SELECT ?' to 'SELECT * ( VALUES(?) )'
 		froms = self._display_froms_for_select(
 			select_stmt, kwargs.get("asfrom", False))
-		if len(froms) == 0:
+
+		#- Translate 'SELECT ?' to 'SELECT * ( VALUES(?) )
+		#- pytest -rP -x --db hsqldb test/test_suite.py::DateTest::test_select_direct
+		if len(froms) == 0 and select_stmt._whereclause is None:
 			vals = values(*select_stmt.selected_columns).data(
 				[tuple([
 					c.value
@@ -664,6 +668,45 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 					])])
 			restructured_select = select('*').select_from(vals)
 			return restructured_select
+
+
+		#- Translate... SELECT :param_1 AS anon_1   WHERE EXISTS (SELECT *   FROM stuff   WHERE stuff.data = :data_1)
+		#- pytest -rP -x --db hsqldb test/test_suite.py::ExistsTest::test_select_exists_false
+		if len(froms) == 0 and select_stmt._whereclause is not None:
+			raise NotImplementedError('###: Code for WHERE EXISTS hasn\'t been implemented.')
+			# If the error above is raised for something other than WHERE EXISTS,
+			# we need to refine the entry to this block. Make a note of it for further investigation.
+
+
+# # # Option B:
+# # SELECT :param_1 AS anon_1 FROM (VALUES (EXISTS
+# # (SELECT * FROM stuff WHERE stuff.data = :data_1) 	-- The inner sub query
+# # )) WHERE c1 = TRUE
+
+			ss = select_stmt 		#- for debugging; <class 'sqlalchemy.sql.selectable.Select'>
+			wc = ss._whereclause 	#- for debugging; <class 'sqlalchemy.sql.selectable.Exists'>; hasattr(wc, 'selected_columns') == False
+
+# (Pdb) zz = select(ss.selected_columns)
+# 'SELECT :param_1 AS anon_1'
+
+# (Pdb) zz = select(ss.selected_columns).select_from(values(wc))  
+# 'SELECT :param_1 AS anon_1 \nFROM (VALUES )
+
+# (Pdb) zz = select(ss.selected_columns).select_from(values(column('c1', sqltypes.Boolean),).data([(True,)]))  
+# 'SELECT :param_1 AS anon_1 \nFROM (VALUES (:param_2))'
+
+			breakpoint() #-
+			vals = values(*select_stmt.selected_columns).data(
+				[tuple([
+					c.value
+					#- What if 'c' has no 'value' attribute? (Seen while executing test_exception_with_non_ascii, now disabled)
+					#- Could possibly call getattr(c, 'value', None), but will it produce the expected behaviour?
+					for c in select_stmt.selected_columns
+					])])
+			restructured_select = select_stmt
+			return restructured_select
+
+
 		return select_stmt
 
 #i update_from_clause; sql; ms; my; pg
