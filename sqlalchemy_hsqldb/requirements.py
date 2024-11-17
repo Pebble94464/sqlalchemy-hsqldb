@@ -1779,7 +1779,3 @@ class HyperSqlRequirements(SuiteRequirements):
     def materialized_views_reflect_pk(self):
         """Target database reflect MATERIALIZED VIEWs pks."""
         return exclusions.closed()
-
-# TODO: delete this comment 16
-
-
