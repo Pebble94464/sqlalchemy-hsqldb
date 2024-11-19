@@ -436,6 +436,7 @@ ischema_names = {
 
 	# TODO: try mapping BOOLEAN to sqltypes.BOOLEAN. Test and verify it works.
 	# "BOOLEAN": HyperSqlBoolean,
+	"BIGINT": sqltypes.BIGINT,
 
 	"CHARACTER": sqltypes.CHAR,
 	"DOUBLE" : sqltypes.DOUBLE, # 64 bit precision floating point number
