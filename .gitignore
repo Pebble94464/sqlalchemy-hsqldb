@@ -1,7 +1,8 @@
 /.hidden_secrets/
 build/
 dist/
-/env/
+env/
+logs/
 /sqlalchemy_hsqldb/__pycache__/
 /sqlalchemy_hsqldb.egg-info
 /test/__pycache__/
