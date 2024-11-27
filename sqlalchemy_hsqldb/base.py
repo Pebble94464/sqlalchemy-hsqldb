@@ -1,4 +1,47 @@
 
+r"""
+
+TODO: like pg, hsqldb implicitly creates unique constraints. Document it here, similar to pg's below...
+.. _postgresql_index_reflection:
+
+#- line 1074
+PostgreSQL Index Reflection
+---------------------------
+
+The PostgreSQL database creates a UNIQUE INDEX implicitly whenever the
+UNIQUE CONSTRAINT construct is used.   When inspecting a table using
+:class:`_reflection.Inspector`, the :meth:`_reflection.Inspector.get_indexes`
+and the :meth:`_reflection.Inspector.get_unique_constraints`
+will report on these
+two constructs distinctly; in the case of the index, the key
+``duplicates_constraint`` will be present in the index entry if it is
+detected as mirroring a constraint.   When performing reflection using
+``Table(..., autoload_with=engine)``, the UNIQUE INDEX is **not** returned
+in :attr:`_schema.Table.indexes` when it is detected as mirroring a
+:class:`.UniqueConstraint` in the :attr:`_schema.Table.constraints` collection
+.
+
+TODO: table options, like postgre...
+
+#- line 1109
+PostgreSQL Table Options
+------------------------
+
+Several options for CREATE TABLE are supported directly by the PostgreSQL
+dialect in conjunction with the :class:`_schema.Table` construct:
+
+* ``ON COMMIT``::
+
+    Table("some_table", metadata, ..., postgresql_on_commit='PRESERVE ROWS')
+
+
+
+
+
+"""
+
+
+
 # "base.py defines the specific SQL dialect used by that database"
 # [New Dialect System](https://docs.sqlalchemy.org/en/20/changelog/migration_06.html)
 
@@ -9,26 +52,50 @@
 # TODO: prefer org.hsqldb.jdbc.JDBCConnection methods over executing SQL strings. Rewrite functions as necessary.
 # TODO: prefer JayDeBeApi Connection methods over JDBCConnection methods
 # TODO: Ensure dialect methods aren't prematurely closing connections.
+# TODO: Dialect specific documentation, along the lines of those found at https://docs.sqlalchemy.org/en/20/dialects/
+# TODO: Estimate project completion and maintenance costs. Include a count of TODOs.
+#- TODO: How should the TypeDecorator class affect the implementation of this dialect? Read \sqlalchemy\doc\build\core\custom_types.rst
 
 import pdb
+
+#from jpype.dbapi2 import Date as
+#-import jpype # 
+from jpype import JClass
+import jpype.dbapi2 as jdbapi
+import datetime
+dt = datetime # An alias for datetime. TODO: import datetime as dt
+# 
 
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import ReflectionDefaults
+
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import quoted_name
-from sqlalchemy import schema
 from sqlalchemy import BindTyping
-from sqlalchemy import util
+from sqlalchemy import cast
+from sqlalchemy import column
 from sqlalchemy import exc
+from sqlalchemy import exists
+from sqlalchemy import schema
+from sqlalchemy import select
+from sqlalchemy import util
+from sqlalchemy import values
+from sqlalchemy.schema import UniqueConstraint
+
+from sqlalchemy.ext.compiler import compiles
+
 
 from sqlalchemy.sql.compiler import InsertmanyvaluesSentinelOpts
 # TODO: remove InsertmanyvaluesSentinelOpts and all other unused imports
 
 #from sqlalchemy import types, exc, pool
 from sqlalchemy import pool
+
+from typing import Optional
+#- Optional is being used by TIME and TIMESTAMP classes
 
 # Types for mysql, pg and oracle, are defined in their respective types.py file...
 # from .types import DATE
@@ -126,20 +193,180 @@ class HyperSqlBoolean(types.BOOLEAN):
 			return bool(value)
 		return process
 
-class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by colspecs
-	__visit_name__ = "_HyperBoolean"
-	#- def __init__(self):
+class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
+	__visit_name__ = 'TIME'
+	#- Visit methods are compiler methods. When TIME(timezone=True) is specified, we want to emit a TIME_WITH_TIME_ZONE
+	render_bind_cast = True
 
-	#- TODO: remove Oracle function below...
-	def get_dbapi_type_oracle(self, dbapi):
-		return dbapi.NUMBER
+	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
+		#- Note timezone must be set to True for TIME WITH TIME ZONE.
+		"""
+		Construct a new :class:`_hsqldb._TIME_WITH_TIME_ZONE`.
+		:param timezone: boolean.  Indicates that the TIME type should
+		use HyperSQL's ``TIME WITH TIME ZONE`` datatype.
+		"""
+		# TODO: update description above
+		super().__init__(timezone=timezone)
+
+	def bind_processor(self, dialect):
+		#- sends datatype to database
+		assert self.timezone == True, "Timezone must be True for type TIME WITH TIME ZONE"
+
+		def process(value):
+			""" convert datetime.time to java.time.OffsetTime """
+			# <java class 'java.time.OffsetTime'>
+			if value == None:
+				return value
+			assert isinstance(value, datetime.time), 'Expecting value to be a datetime.time'
+			hour = value.hour
+			minute = value.minute
+			second = value.second
+			nano = value.microsecond * 1000
+			timedelta = value.tzinfo.utcoffset(None)
+			JOffsetTime = JClass('java.time.OffsetTime', False)
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetTime.html
+			JZoneOffset = JClass('java.time.ZoneOffset')
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
+			return JOffsetTime.of(hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
+		return process
+
+class _TIME(sqltypes.TIME):
+	__visit_name__ = 'TIME'
+	render_bind_cast = True
+
+	# HSQLDB's TIME datatype has a precision setting, but it seems to have no effect,
+	# and fractions of a second the underlying java.sql.Time are stored in milliseconds,
+	# which are less precise than the microseconds used for datetime.
+	# TODO: investigate how other dialects handle fractions of a second for TIME.
+	# TODO: impl precision param for hsqldb's TIME class if needed.
+
+	def __init__(self, timezone: bool = False, precision: Optional[int] = None):
+		"""
+		Construct a new :class:`_hsqldb.TIME`.
+		:param timezone: boolean.  Indicates that the TIME type should
+		use HyperSQL's ``TIME`` datatype.
+		"""
+		# TODO: update description above
+		super().__init__(timezone=timezone)
+		#- timezone is a member of sqltypes.Time class
+
+	def get_dbapi_type(self, dbapi):
+		assert True, 'get_dbapi_type: When does this function get called? '
+		return dbapi.TIME
+	# TODO: Remove the assertion when the purpose of this method is understood.
+
+	def bind_processor(self, dialect):
+		def process(value):
+			assert isinstance(value, datetime.time), 'time for tellytubbies' #-
+
+			if value.microsecond % 1000 > 0:
+				print('# Warning: potential precision loss while converting from microseconds to milliseconds')
+			# TODO: How best to show potential precision loss, log warning?
+
+			return dialect.dbapi.Time(
+				value.hour,
+				value.minute,
+				value.second
+				)
+		return process
+		# TODO: test with other timezone / dst combinations, like -4 hrs UTC Atlantic time (Canada), with and without DST.
 
 
-# WIP: what are colspecs?
+class INTEGER(sqltypes.INTEGER):
+	render_bind_cast = True
+
+	def __init__(self, *args):
+		if len(args) > 0:
+			breakpoint() #-
+		super().__init__(*args)
+# PG dialect sets 'render_bind_cast = True' on many types, if not all. Yet it's colspecs dictionary is lighter than I expected.
+
+class TIMESTAMP(sqltypes.TIMESTAMP):
+	__visit_name__ = 'TIMESTAMP'
+	render_bind_cast = True
+
+	def __init__(self, timezone: bool = False, precision: Optional[int] = None):
+		"""
+		Construct a new :class:`_hsqldb.TIMESTAMP`.
+		:param timezone: boolean.  Indicates that the TIMESTAMP type should
+		use HyperSQL's ``TIMESTAMP WITH TIME ZONE`` datatype.
+		"""
+		super().__init__(timezone=timezone)
+	# TODO: implement support for 'precision'. Defaults to 6 for timestamps.
+	#- Note that no other dialects define a bind or results processor for TIMESTAMP.
+
+	def bind_processor(self, dialect):
+		def processor(value):
+			if type(value) != datetime.datetime:
+				return None
+			year = value.year - 1900
+			month = value.month - 1
+			day = value.day
+			hour = value.hour
+			minute = value.minute
+			second = value.second
+			nano = value.microsecond * 1000
+			JTimestamp = JClass('java.sql.Timestamp', False)
+			return JTimestamp(year, month, day, hour, minute, second, nano)
+		return processor
+
+class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
+	__visit_name__ = 'TIMESTAMP'
+	render_bind_cast = True
+
+	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
+		super().__init__(timezone=timezone)
+
+	def bind_processor(self, dialect):
+		def processor(value):
+			if type(value) != datetime.datetime:
+				return None
+			assert isinstance(value, datetime.datetime), 'Expecting a datetime.datetime object'
+			year = value.year
+			month = value.month
+			day = value.day
+			hour = value.hour
+			minute = value.minute
+			second = value.second
+			nano = value.microsecond * 1000
+			timedelta = value.tzinfo.utcoffset(None)
+			JOffsetDateTime = JClass('java.time.OffsetDateTime', False)
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html
+			JZoneOffset = JClass('java.time.ZoneOffset')
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
+			return JOffsetDateTime.of(year, month, day, hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
+		return processor
+	# HSQLDB uses java.time.OffsetDateTime to store timestamps with a timezone.
+	# This class is required so we can set timezone to True, and have the bind
+	# processor return an OffsetDateTime object.
+
+class _Date(sqltypes.Date):
+	__visit_name__ = "DATE"
+	render_bind_cast = True
+
+	def bind_processor(self, dialect):
+		def processor(value):
+			assert isinstance(value, datetime.date) or value is None, "_Date bind processor expects datetime.date, datetime.datetime, or None" #-
+			if isinstance(value, datetime.date) == False:
+				return None
+			year = value.year - 1900
+			month = value.month - 1
+			day = value.day
+			JDate = JClass('java.sql.Date')
+			return JDate(year, month, day)
+		return processor
+
+	def literal_processor(self, dialect):
+		# print('### _Date literal_processor') #-
+		# breakpoint() #- When is this method called and does it produce a correct result? test/test_suite.py::DateTest_hsqldb+jaydebeapi_2_7_2::test_literal
+		return super().literal_processor(dialect)
+		# TODO: impl _Date literal processor if needed.
+
+# What are colspecs?
 #		Descriptions can be found here:  site-packages\sqlalchemy\engine\interfaces.py
 #		"colspecs" is a required Dialect class member according to type_migration_guidelines.txt
 
-# 'colspecs' seems to map sqltypes to types defined in the dialect's types.py file.
+# 'colspecs' maps sqltypes to types defined in the dialect's types.py file.
 # default.DefaultDialect.colspecs: MutableMapping[Type[TypeEngine[Any]], Type[TypeEngine[Any]]] = {}
 #
 # type_migration_guidelines.txt reads...
@@ -149,20 +376,24 @@ class _HyperBoolean(types.BOOLEAN): # _CamelCase, stays private, invoked only by
 #		indicate a special type only available in this database, it must be *removed* from the 
 #		module and from this dictionary.
 #
-
-# Map SQLAlchemy types to HSQLDB dialect types.
-# Note:	If a type doesn't specify any special behavior for bind_processor() or result_processor() and does not indicate
-#		a special type only available in this database, it must be *removed* from the module and from this dictionary.
+# Setting 'render_bind_cast = True' on types has no effect unless the type is included in colspecs,
+# which potentially leads to many types needing to be included in the colspecs dictionary.
+# Other dialects appear to have few entries in the colspecs dictionary. Am I doing something wrong?
+#
 colspecs = {
 	# sqltypes.LargeBinary: JDBCBlobClient,
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
 
+	sqltypes.Date: _Date,
+	sqltypes.DateTime: TIMESTAMP, 	# How to separate TIMESTAMPS with and without timezones?
+	sqltypes.Time: _TIME,
+	sqltypes.Integer: INTEGER,
+
 	# sqltypes.BLOB: JDBCBlobClient,
 	# sqltypes.BINARY: JDBCBlobClient2,
 	# sqltypes.PickleType: JDBCBlobClient,
 	# sqltypes.ARRAY: _array.ARRAY,
-	#sqltypes.Boolean: _HyperBoolean, #- TODO: remove mapping, and the class itself. Behavior doesn't differ
 	# sqltypes.Date: _OracleDate,
 	# sqltypes.DateTime: _MSDateTime,
 	# sqltypes.Enum: ENUM,
@@ -192,6 +423,8 @@ colspecs = {
 #
 # The Access dialect uses INFORMATION_SCHEMA.COLUMNS.DATA_TYPE
 #
+#- The values in ischema_names are subsequently assigned to the 'type' attribute of the object returned by get_columns.
+#-
 ischema_names = {
 
 	# TODO: Mapping BLOB to sqltypes.BLOB is probably the correct way to do it. 
@@ -203,12 +436,25 @@ ischema_names = {
 
 	# TODO: try mapping BOOLEAN to sqltypes.BOOLEAN. Test and verify it works.
 	# "BOOLEAN": HyperSqlBoolean,
+	"BIGINT": sqltypes.BIGINT,
 
 	"CHARACTER": sqltypes.CHAR,
 	"DOUBLE" : sqltypes.DOUBLE, # 64 bit precision floating point number
 	"INTEGER": sqltypes.INTEGER,
 	"NUMERIC": sqltypes.NUMERIC,
 	"VARCHAR": sqltypes.VARCHAR,
+
+	"DATE": _Date,
+
+	#- hsqldb uses two different types for time with and without timezone, i fink, so...
+	"TIME": _TIME,  # TODO: ensure class name follows naming convension
+	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,
+
+	"TIMESTAMP": TIMESTAMP,
+	"TIMESTAMP WITH TIME ZONE": _TIMESTAMP_WITH_TIME_ZONE,
+
+	# "INTERVAL DAY TO SECOND": INTERVAL,
+	# "DATETIME": TIMESTAMP	# Don't uncomment. DATETIME is an alias for TIMESTAMP. Although it can appear in DDL, a TIMESTAMP field is created.
 }
 
 
@@ -216,6 +462,9 @@ ischema_names = {
 #- SQLCompiler derives from class Compiled, which represents Represent a compiled SQL or DDL expression.
 class HyperSqlCompiler(compiler.SQLCompiler):
 #- compiler.SQLCompiler methods that are commonly inherited by dialects have been stubbed below.
+
+	has_out_parameters = True
+	#- has_out_parameters should be set to true because HSQLDB supports OUT params
 
 #i __init__; sql; ms; ora
 	def __init__(self, *args, **kwargs):
@@ -235,19 +484,14 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i _get_limit_or_fetch; ms; ora
 #i _get_nonansi_join_whereclause; ora
 
-#i _literal_execute_expanding_parameter_literal_binds(self, parameter, values, bind_expression_template=None):
-	def _literal_execute_expanding_parameter(self, name, parameter, values):
-		raise NotImplementedError('xxx: _literal_execute_expanding_parameter')
-	# TODO: Unsure why this function has been stubbed. remove it?
-
 #i _mariadb_regexp_flags; my
 #i _on_conflict_target; pg
 #i _regexp_match; my; pg
 #i _render_json_extract_from_binary; ms; my
 
 #i _row_limit_clause; sql; ms; ora
-	def _row_limit_clause(self, cs, **kwargs):
-		raise NotImplementedError('xxx: _row_limit_clause')
+	#- def _row_limit_clause(self, cs, **kwargs):
+	#- 	raise NotImplementedError('xxx: _row_limit_clause')
 	# The base impl calls fetch clause or limit clause.
 	# TODO: Unsure why this function has been stubbed. remove it?
 
@@ -315,9 +559,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 	def get_from_hint_text(self, table, text):
 		raise NotImplementedError('xxx: get_from_hint_text')
 
-#i get_render_as_alias_suffix; sql; ora
-	def get_render_as_alias_suffix(self, alias_name_text):
-		raise NotImplementedError('xxx: get_render_as_alias_suffix')
+#i get_render_as_alias_suffix; sql; ora # inherit
+	#- def get_render_as_alias_suffix(self, alias_name_text):
+	#- 	raise NotImplementedError('xxx: get_render_as_alias_suffix')
 
 #i get_select_hint_text; sql; ora
 	def get_select_hint_text(self, byfroms):
@@ -334,9 +578,30 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 
 #i label_select_column; ms
 
+	def decorator_disable_bind_casts(f):
+		''' A decorator to disable the rendering of casts for bound types. '''
+		# Bind typing for this dialect is set to RENDER_CASTS.  Applying this
+		# setting causes all bound parameters to be cast, which is not what not
+		# necessarily what we want. For example HSQLDB will error if we attempt
+		# to cast a value on a limit clause.
+		def inner_func(*args, **kwargs):
+			self = args[0]
+			assert isinstance(self, HyperSqlCompiler), 'Decorator can only be used on HyperSqlCompiler methods'
+
+			self.dialect._bind_typing_render_casts = False
+			result = f(*args, **kwargs)
+			self.dialect._bind_typing_render_casts = True
+			return result
+		return inner_func
+	# TODO: Review code. What's the proper way to define decorators for use with class methods?
+	# TODO: Consider in-lining code if it's used in not other place than limit_clause.
+
 #i limit_clause; sql; ms; my; ora; pg
+	@decorator_disable_bind_casts
 	def limit_clause(self, select, **kw):
-		#- raise NotImplementedError
+		# HSQLDB 2.7.2 doesn't support the casting of bound parameters for
+		# limit clauses. Use decorator_disable_bind_casts.
+
 		text = ""
 		if select._limit_clause is not None:
 			text += " \n LIMIT " + self.process(select._limit_clause, **kw)
@@ -347,22 +612,37 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		return text
 
 #i order_by_clause; sql; ms
-	def order_by_clause(self, select, **kw):
-		raise NotImplementedError('xxx: order_by_clause')
+	#- def order_by_clause(self, select, **kw): # Inherit from compiler.SQLCompiler
+	#- 	raise NotImplementedError('xxx: order_by_clause')
+
+	#- def visit_values(self, element, asfrom=False, from_linter=None, **kw):
+	def visit_values(self, element, **kw):
+		return super().visit_values(element, **kw)
+	#- 'asfrom' in **kw seems to determine whether the VALUES statement is rendered in a subquery or not.
+	# TODO: remove if unused
+
+	def visit_bindparam(self, *args, **kwargs):
+		return super().visit_bindparam(*args, **kwargs)
+	# TODO: remove if unused.
 
 #i render_bind_cast; sql; pg
 	def render_bind_cast(self, type_, dbapi_type, sqltext):
-		return super().render_bind_cast(type_, dbapi_type, sqltext)
-	# 'render_bind_cast' gets called when HyperSqlDialect.bind_typing = BindTyping.BIND_CASTS
-	# 'render_bind_cast' is not implemented in the base.
-	# 'render_bind_cast' is specialised by the postgresql dialect.
-	# An alternative is BindingTyping.SETINPUTSIZES, which doesn't appear to be supported by JPype.
-	# TODO: investigate if render_bind_cast is appropriate for HSQLDB, or remove this method if unused.
+		return f"""CAST({sqltext} AS {
+				self.dialect.type_compiler_instance.process(
+					dbapi_type, identifier_preparer=self.preparer
+				)})"""
+
+	#- def render_literal_bindparam(self, bindparam, render_literal_value=NO_ARG, bind_expression_template=None, **kw,):
+	def render_literal_bindparam(self, bindparam, **kwargs):
+		return super().render_literal_bindparam(bindparam, **kwargs)
+	# TODO: remove if unused
 
 #i render_literal_value; sql; my; pg
 	def render_literal_value(self, value, type_):
-		# raise NotImplementedError('xxx: render_literal_value')
-		return super().render_literal_value(value, type_)
+		value = super().render_literal_value(value, type_)
+		return value
+	# HSQLDB literal values can be specified by proceeding values with a
+	# datatype, e.g. `SELECT c1 FROM (VALUES(DATE '1996-07-01'))`
 	# TODO: inherit method from base class if behaviour is unchanged.
 
 #i returning_clause; sql; ms; ora
@@ -370,6 +650,65 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 		raise NotImplementedError('xxx: returning_clause')
 
 #i translate_select_structure; ms; ora
+	def translate_select_structure(self, select_stmt, **kwargs):
+		# HSQLDB 2.7.2 doesn't support direct selections, but we can work
+		# around this limitation by using a values clause inside a subquery,
+		# i.e. translate 'SELECT ?' to 'SELECT * ( VALUES(?) )'
+		froms = self._display_froms_for_select(
+			select_stmt, kwargs.get("asfrom", False))
+
+		#- Translate 'SELECT ?' to 'SELECT * ( VALUES(?) )
+		#- pytest -rP -x --db hsqldb test/test_suite.py::DateTest::test_select_direct
+		if len(froms) == 0 and select_stmt._whereclause is None:
+			vals = values(*select_stmt.selected_columns).data(
+				[tuple([
+					c.value
+					#- What if 'c' has no 'value' attribute? (Seen while executing test_exception_with_non_ascii, now disabled)
+					#- Could possibly call getattr(c, 'value', None), but will it produce the expected behaviour?
+					for c in select_stmt.selected_columns
+					])])
+			restructured_select = select('*').select_from(vals)
+			return restructured_select
+
+
+		#- Translate... SELECT :param_1 AS anon_1   WHERE EXISTS (SELECT *   FROM stuff   WHERE stuff.data = :data_1)
+		#- pytest -rP -x --db hsqldb test/test_suite.py::ExistsTest::test_select_exists_false
+		if len(froms) == 0 and select_stmt._whereclause is not None:
+			raise NotImplementedError('###: Code for WHERE EXISTS hasn\'t been implemented.')
+			# If the error above is raised for something other than WHERE EXISTS,
+			# we need to refine the entry to this block. Make a note of it for further investigation.
+
+
+# # # Option B:
+# # SELECT :param_1 AS anon_1 FROM (VALUES (EXISTS
+# # (SELECT * FROM stuff WHERE stuff.data = :data_1) 	-- The inner sub query
+# # )) WHERE c1 = TRUE
+
+			ss = select_stmt 		#- for debugging; <class 'sqlalchemy.sql.selectable.Select'>
+			wc = ss._whereclause 	#- for debugging; <class 'sqlalchemy.sql.selectable.Exists'>; hasattr(wc, 'selected_columns') == False
+
+# (Pdb) zz = select(ss.selected_columns)
+# 'SELECT :param_1 AS anon_1'
+
+# (Pdb) zz = select(ss.selected_columns).select_from(values(wc))  
+# 'SELECT :param_1 AS anon_1 \nFROM (VALUES )
+
+# (Pdb) zz = select(ss.selected_columns).select_from(values(column('c1', sqltypes.Boolean),).data([(True,)]))  
+# 'SELECT :param_1 AS anon_1 \nFROM (VALUES (:param_2))'
+
+			breakpoint() #-
+			vals = values(*select_stmt.selected_columns).data(
+				[tuple([
+					c.value
+					#- What if 'c' has no 'value' attribute? (Seen while executing test_exception_with_non_ascii, now disabled)
+					#- Could possibly call getattr(c, 'value', None), but will it produce the expected behaviour?
+					for c in select_stmt.selected_columns
+					])])
+			restructured_select = select_stmt
+			return restructured_select
+
+
+		return select_stmt
 
 #i update_from_clause; sql; ms; my; pg
 	def update_from_clause(self, update_stmt, from_table, extra_froms, from_hints, **kw):
@@ -386,9 +725,9 @@ class HyperSqlCompiler(compiler.SQLCompiler):
 #i visit_aggregate_order_by; pg
 #i visit_aggregate_strings_func; ms; my; ora; pg
 
-#i visit_alias; sql; ms
-	def visit_alias(self, alias, asfrom=False, ashint=False, iscrud=False, fromhints=None, subquery=False, lateral=False, enclosing_alias=None, from_linter=None, **kwargs, ):
-		raise NotImplementedError('xxx: visit_alias')
+#i visit_alias; sql; ms # inherit
+	#- def visit_alias(self, alias, asfrom=False, ashint=False, iscrud=False, fromhints=None, subquery=False, lateral=False, enclosing_alias=None, from_linter=None, **kwargs, ):
+	#- 	raise NotImplementedError('xxx: visit_alias')
 
 #i visit_array; pg
 
@@ -732,28 +1071,118 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 			generated.sqltext, include_table=False, literal_binds=True
 		)
 
+
+# WIP: index to unique constraint -->
+	# @compiles(schema.CreateColumn)
+	# def compile(element, compiler, **kw):
+	# 	pass
+
+# # class CreateIndex(_CreateBase):
+# #     """Represent a CREATE INDEX statement."""
+# #     __visit_name__ = "create_index"
+# #     def __init__(self, element, if_not_exists=False):
+ 
+	@compiles(schema.CreateIndex, 'hsqldb')
+	def _compile_create_index(createIndexObj, compiler, **kw):
+		index = createIndexObj.element
+		if index.unique == True and False:
+			# Unique indexes are deprecated in HSQLDB since version 1.8,
+			# so we need to generate DDL for a unique constraint instead.
+
+			uc = UniqueConstraint(index.columns, name=index.name, _column_flag=False)
+			raise exc.CompilerError('Unique indexes are deprecated. Use a unique constraint instead.')
+
+			raise NotImplementedError
+			return compiler.visit_add_constraint(uc, **kw)
+
+			# index.table.append_constraint(uc)
+			return compiler.visit_create_unique_index(index, **kw) # This to create a unique constraint
+			# Don't add a UniqueConstraint to the metadata because that could cause other DBMSs to generate a UC.
+			return compiler.visit_unique_constraint(index, **kw) #- failed
+		else:
+			return compiler.visit_create_index(createIndexObj, **kw)
+
+#- signature of visit_create index...
+#def visit_create_index(self, create, include_schema=False, include_table_schema=True, **kw):
+
+	#- @compiles(schema.Index, 'hsqldb')
+	#- def _compile_index(element, compiler, **kw):
+	#- 	return compiler.visit_index(element, **kw) # returns index name
+	#- TODO: remove
+
 #i visit_create_index; ddl; ms; my; ora; pg
 	def visit_create_index(self, create, include_schema=False, include_table_schema=True, **kw):
 		index = create.element
 		self._verify_index_table(index)
 		preparer = self.preparer
-		if index.name is None:
-			raise exc.CompileError("CREATE INDEX requires an index name.")
-		text = "CREATE INDEX "
-		if create.if_not_exists:
-			text += "IF NOT EXISTS "
-		text += "%s ON %s (%s)" % (
-			self._prepared_index_name(index, include_schema=include_schema),
-			preparer.format_table(index.table, use_schema=include_table_schema),
-			", ".join(
-				self.sql_compiler.process(
-					expr, include_table=False, literal_binds=True
-				)
-				for expr in index.expressions
-			),
-		)
-		return text
-		# Support for the ASC|DESC option not implemented because it has no effect.
+
+# WIP: index to unique constraint -->
+		# Index('users_t_idx',
+		# 	Column('test1', CHAR(length=5), table=<users>, nullable=False), 
+		# 	Column('test2', Float(), table=<users>, nullable=False),
+		# 	unique=True)
+		if index.unique == True and False: # temporarily disabled with False
+			# Add a table-level UNIQUE constraint...
+			table = index.table
+			table.indexes.remove(index)
+			# index.drop(bind=engine)
+			# uc = UniqueConstraint((index.expressions), name=index.name)
+			uc = UniqueConstraint(index.columns, name=index.name)
+			table.append_constraint(uc)
+			# schema.Index("users_t_idx", users.c.test1, users.c.test2, unique=True)
+
+			# # # index.table.append_constraint(
+			# # # 	schema.UniqueConstraint(
+			# # # 		# *columns: _DDLColumnArgument,
+			# # # 		index.columns,
+			# # # 		# # ", ".join(
+			# # # 		# # 	self.sql_compiler.process(
+			# # # 		# # 		expr, include_table=False, literal_binds=True
+			# # # 		# # 	)
+			# # # 		# # 	for expr in index.expressions
+			# # # 		# # ),
+
+			# # # 		# name: _ConstraintNameArgument = None,
+			# # # 		self._prepared_index_name(index, include_schema=include_schema),
+
+			# # # 		# deferrable: Optional[bool] = None,
+			# # # 		# initially: Optional[str] = None,
+			# # # 		# info: Optional[_InfoType] = None,
+			# # # 		# _autoattach: bool = True,
+			# # # 		# _column_flag: bool = False,
+			# # # 		# _gather_expressions: Optional[List[_DDLColumnArgument]] = None,
+			# # # 		# **dialect_kw: Any
+			# # # 	)
+			# # # )
+			# create a unique constraint instead, ALTER TABLE t ADD CONSTRAINT cst UNIQUE (num)
+			# # text = "ALTER TABLE t ADD CONSTRAINT cst UNIQUE (num)"
+			# Is there already a method for adding constraints?
+			# 	Yes, visit_unique_constraint(), but this skips 'ALTER TABLE' and starts with 'CONSTRAINT'.
+			# 
+# WIP: add unique constraint  -->
+			return None
+		else:
+			if index.name is None:
+				raise exc.CompileError("CREATE INDEX requires an index name.")
+			text = "CREATE INDEX "
+			if create.if_not_exists:
+				text += "IF NOT EXISTS "
+			text += "%s ON %s (%s)" % (
+				self._prepared_index_name(index, include_schema=include_schema),
+				preparer.format_table(index.table, use_schema=include_table_schema),
+				", ".join(
+					self.sql_compiler.process(
+						expr, include_table=False, literal_binds=True
+					)
+					for expr in index.expressions
+				),
+			)
+			return text
+			# Support for the ASC|DESC option not implemented because specifying
+			# the sort order for indexes has no effect in HSQLDB. The asc_or_desc
+   			# column is always set to 'A'.
+			# TODO: Is there a case for spoofing the setting, for example to preserve the sort order between DBs?
+			# TODO: Consider raising an error when desc() is called. 
 
 #i visit_create_sequence; ddl; ms; pg
 	def visit_create_sequence(self, create, **kw):
@@ -880,22 +1309,38 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 # TODO: Solve mystery. Access dialect has 'type_compiler', others have 'type_compiler_cls'
 class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
 
-	# TODO: remove visit_Boolean below...
-	def visit_Boolean_X(self, type_, **kw):
-		# TODO: This function is not called. Remove it.
-		raise NotImplementedError
-		return _HyperBoolean.__visit_name__
+	def visit_TIMESTAMP(self, type_, **kw):
+		if type_.timezone == True:
+			return "TIMESTAMP WITH TIME ZONE"
+		else:
+			return "TIMESTAMP"
+	# TODO: timestamp precision
 
-	# TODO: remove visit_BOOLEAN below...
-	def visit_BOOLEAN_X(self, type_, **kw):
-		# This function gets called for Boolean and BOOLEAN, but duplicates the default BOOLEAN behaviour, so remove it.
-		return _HyperBoolean.__visit_name__
+	def visit_datetime(self, type_, **kw):
+		return self.visit_TIMESTAMP(type_, **kw)
+	#- This function causes SQLAlchemy render TIMESTAMP instead of DATETIME when a table is created.
+	#- However there's possibly more going on here and maybe it could be thought of as some conversion process,
+	#- returning a compiled TIMESTAMP object instead of a compiled DATETIME object. Is this correct?
+	#-
+	#- DATETIME is not an HSQLDB datatype, but HSQLDB seems to accept it in DDL
+	#- and treats it as an alias for TIMESTAMP.
+	#- The pg dialect also defines this function.
+
+	def visit_TIME(self, type_, **kw):
+		if type_.timezone == True:
+			return "TIME WITH TIME ZONE"
+		else:
+			return "TIME"
+	# TODO: time precision
 
 # WIP: HyperSqlIdentifierPreparer -->
 # TODO: Implement HyperSqlIdentifierPreparer. About 20-55 lines, 2-5 methods.
 class HyperSqlIdentifierPreparer(compiler.IdentifierPreparer):
 	# Reserved words can be a union of sets 1 and 3, or 2 and 3.
 	reserved_words = RESERVED_WORDS_1.union(RESERVED_WORDS_3)
+
+	# Identifiers must begin with a letter...
+	illegal_initial_characters = {str(dig) for dig in range(0, 10)}.union(['_', '$'])
 
 	def __init__(self, dialect, **kwargs):
 		super().__init__(dialect, **kwargs)
@@ -948,6 +1393,7 @@ All keywords can be used with double quotes as identifiers.
 Identifiers must begin with a letter.
 Setting 'SET DATABASE SQL REGULAR NAMES FALSE' relaxes the rules and allows
 identifiers to begin with an underscore '_', and include dollar signs in the name.
+Observed that quoted identifiers can begin with underscores.
 
 Identifier length must be between 1 and 128 characters.
 
@@ -958,10 +1404,71 @@ Identifier length must be between 1 and 128 characters.
 # TODO: Implement HyperSqlExecutionContext. About 55-165 lines, 2-8 methods.
 class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	def __init__(self):
-		print('#3' * 10, 'inside HyperSqlExecutionContext.__init__ method')
 		assert False, 'Does a HyperSqlExecutionContext object get instantiated?'
 	# TODO: remove __init__ method if this class is never instantiated.
 
+#j create_server_side_cursor ; dec ; my ; my_ma ; pgc ; pg_a ; pg_pg8 ; sl_a
+	def create_server_side_cursor(self):
+		if self.dialect.supports_server_side_cursors:
+			return self._dbapi_connection.cursor() # TODO: are any params required?
+		else:
+			raise NotImplementedError()
+	# TODO: Should this function exist here or in HyperSqlExecutionContext_jaydebeapi?
+
+#j fire_sequence ; ec ; ms ; my ; o ; pg
+	def fire_sequence(self, seq, type_):
+		"""given a :class:`.Sequence`, invoke it and return the next int value"""
+		raise NotImplementedError
+
+#j get_insert_default ; dec ; ms ; pg
+	def get_insert_default(self):
+		raise NotImplementedError
+
+#j get_lastrowid ; dec ; a ; ms ; my_ma ; my_py
+	def get_lastrowid(self):
+		raise NotImplementedError
+
+	def get_out_parameter_values(self, out_param_names):
+		# this method should not be called when the compiler has
+		# RETURNING as we've turned the has_out_parameters flag set to
+		# False.
+		if len(out_param_names) > 0:
+			breakpoint() # Looking for an example of when this is called.
+		# TODO: remove if block when usage of an out param is found and tested.
+		assert not self.compiled.returning
+		return [
+			self.dialect._paramval(self.out_parameters[name])
+			for name in out_param_names
+		]
+	# HSQLDB supports IN, OUT, and INOUT parameters for procedures, so we may
+	# need to implement this method. The one above is based on Oracle's.
+	# See (https://hsqldb.org/doc/guide/sqlroutines-chapt.html)
+	# This method is called when HyperSqlExecutionContext.has_out_parameters
+	# is set to True.
+
+#j handle_dbapi_exception ; ec ; dec ; ms ; pg_a
+	def handle_dbapi_exception(self, e):
+		return super().handle_dbapi_exception(e)
+	# TODO: inherit if unused
+
+#j post_exec ; ec ; dec ; ms ; ms_py ; my_ma ; o_cx ; pgc_p2
+	def post_exec(self):
+		# print('### HypereSqlExecutionContext.post_exec') #-
+		return super().post_exec()
+	# TODO: just inherit if unused
+
+#j pre_exec ; ec ; dec ; ms ; ms_py ; o ; o_cx ; pg_a ; pg_pg8
+	def pre_exec(self):
+		# print('### HypereSqlExecutionContext.pre_exec') #-
+		return super().pre_exec()
+	# TODO: inherit if unused
+
+#j rowcount ; dec ; ms ; my_ma ; my_my
+	def rowcount(self):
+		return super().rowcount()
+	# TODO: just inherit if unused
+
+# TODO: remove lines begining with '#j'. These lines list commonly overriden execution context functions
 	"""
 	https://docs.sqlalchemy.org/en/14/core/internals.html
 	default.DefaultExecutionContext derives from an ExecutionContext.
@@ -976,90 +1483,24 @@ class HyperSqlExecutionContext(default.DefaultExecutionContext):
 	mysql		20
 	oracle		27
 	pg			54
+
+	Each dialect specialises DefaultExecutionContext,
+	and each dialect connector then specialises further. See...
+		jaydebeapi.py:
+			class HyperSqlExecutionContext_jaydebeapi(HyperSqlDialect.HyperSqlExecutionContext):
+
 	"""
-
-#i _opt_encode; ms
-#i create_server_side_cursor; dec; my
-	def create_server_side_cursor(self):
-		if self.dialect.supports_server_side_cursors:
-			return self._dbapi_connection.cursor() # TODO: are any params required?
-		else:
-			raise NotImplementedError()
-
-
-	# # def create_server_side_cursor_my(self):
-	# # 	if self.dialect.supports_server_side_cursors:
-	# # 		return self._dbapi_connection.cursor(self.dialect._sscursor)
-	# # 	else:
-	# # 		raise NotImplementedError()
-
-	# # def create_server_side_cursor_maria(self):
-	# # 	return self._dbapi_connection.cursor(buffered=False)
-
-	# # def create_server_side_cursor_pg8000(self):
-	# # 	ident = "c_%s_%s" % (hex(id(self))[2:], hex(_server_side_id())[2:])
-	# # 	return ServerSideCursor(self._dbapi_connection.cursor(), ident)
-
-	# # def create_server_side_cursor(self):
-	# # 	# use server-side cursors:
-	# # 	# psycopg
-	# # 	# https://www.psycopg.org/psycopg3/docs/advanced/cursors.html#server-side-cursors
-	# # 	# psycopg2
-	# # 	# https://www.psycopg.org/docs/usage.html#server-side-cursors
-	# # 	ident = "c_%s_%s" % (hex(id(self))[2:], hex(_server_side_id())[2:])
-	# # 	return self._dbapi_connection.cursor(ident)
-
-	# # def create_server_side_cursor(self):
-	# # 	raise NotImplementedError()
-
-
-
-#i fire_sequence; ec; ms; my; ora; pg
-	def fire_sequence(self, seq, type_):
-		"""given a :class:`.Sequence`, invoke it and return the next int value"""
-		raise NotImplementedError()
-
-	# # def fire_sequence_my(self, seq, type_):
-	# # 	return self._execute_scalar(
-	# # 		(
-	# # 			"select nextval(%s)"
-	# # 			% self.identifier_preparer.format_sequence(seq)
-	# # 		),
-	# # 		type_,
-	# # 	)
-
-#i get_insert_default; dec; ms; pg
-	def get_insert_default(self, column):
-		raise NotImplementedError()
-		return super().get_insert_default(column)
-
-#i get_lastrowid; dec; ms
-	def get_lastrowid(self):
-		raise NotImplementedError()
-		return super().get_lastrowid()	
-
-#i handle_dbapi_exception; ec; dec; ms
-	def handle_dbapi_exception(self, e):
-		"""Receive a DBAPI exception which occurred upon execute, result fetch, etc."""
-		return super().handle_dbapi_exception(e)
-
-#i post_exec; ec; dec; ms
-	def post_exec(self):
-		super().post_exec()
-	# TODO: inherit if unused
-
-#i pre_exec; ec; dec; ms; ora
-	def pre_exec(self):
-		super().pre_exec()
-	# TODO: inherit if unused
-
-	# # def pre_exec_pg8000(self):
-	# # 	if not self.compiled:
-	# # 		return
-
-#i rowcount; dec; ms
-	def rowcount(self):
-		return super().rowcount()
+#j get_result_processor ; dec
+	# TODO: remove X to enable
+	def get_result_processorX(self, type_, colname, coltype):
+		"""jsn: Return a 'result processor' for a given type as present in cursor.description.
+		Override this method for context-sensitive result type handling."""
+		print(f'### colname: {str(colname)}, \t\tcoltype: {str(coltype)}, type_: {str(type_)}') #- a
+		if str(type_) != 'NULL':
+			breakpoint() # Break here to examine what type is being received.
+		return super().get_result_processor(type_, colname, coltype)
+	# This DefaultExecutionContext method is not normally overriden. It's only done here for troubleshooting purposes.
+	# TODO: remove after troubleshooting
 
 
 class HyperSqlDialect(default.DefaultDialect):
@@ -1179,6 +1620,7 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i  execution_ctx_cls: Type[ExecutionContext]; """a :class:`.ExecutionContext` class used to handle statement execution"""
 	execution_ctx_cls = HyperSqlExecutionContext
+	#- JayDeBeApi connector may need a derived execution_ctx_cls. Stub created.
 
 #i  execute_sequence_format: tuple # JSN: Use the DefaultDialect's property.
 	# execute_sequence_format: tuple # inherit from DefaultDialect
@@ -1457,16 +1899,26 @@ class HyperSqlDialect(default.DefaultDialect):
 #i  """internal evaluation for supports_statement_cache"""
 
 #i  bind_typing = BindTyping.NONE; define a means of passing typing information to the database and/or driver for bound parameters.
-	bind_typing = BindTyping.NONE
-	# The options are... NONE | SETINPUTSIZES | RENDER_CASTS
+	bind_typing = BindTyping.RENDER_CASTS
+	# bind_typing = BindTyping.NONE
+	# When bind_typing is set to render casts it seems every occurance of a
+	# bound type is explicitly cast, which is not necessarily what we want.
+	# For example, we want to cast bound parameters inside a VALUES clause,
+	# but not a LIMIT clause. We want to disable casting for limit clauses.
+	# 
+	# Internally the dialect property '_bind_typing_render_casts' is checked to
+	# determine whether or not to render a cast.
 	#
-	# According to JPype documentation, the setinputsizes method has not been implemented. See...
-	# (https://jpype.readthedocs.io/en/latest/dbapi2.html#jpype.dbapi2.Cursor.setinputsizes)
-	# So, presumeably unsupported by HSQLDB via JayDeBeApi.
+	# (In case you're thinking there's an alternative way to disable casts, by
+	# setting bind_typing = BindTyping.NONE for specific clauses, it doesn't
+	# work. I've already tried.)
+	# 
+	# There's more than one way to skin a cat... If we've set bind_typing to
+	# NONE instead of RENDER_CASTS, no bound types will be cast and we will
+	# then need to enable casting for specific clauses like VALUES.
 	#
-	# Setting BindTyping to RENDER_CASTS results in calls to SQLCompiler.render_bind_casts
-	# The base class's method is not implemented. However the PG dialect overrides it.
-	# TODO: Investigate further. Can HSQLDB use RENDER_CASTS?
+	# TODO: Is it better to default to BindTyping.RENDER_CASTS or BindTyping.NONE?  Currently undecided.
+
 
 #i  is_async: bool; # """Whether or not this dialect is intended for asyncio use."""
 	is_async = False
@@ -2315,6 +2767,27 @@ class HyperSqlDialect(default.DefaultDialect):
 
 #i  def do_set_input_sizes(
 	#- def do_set_input_sizes( # inherit from Dialect
+	def do_set_input_sizes(self, cursor, list_of_tuples, context):
+		raise NotImplementedError()
+		#- TODO: adapt or remove this function as required. Copied from cx_oracle.py.
+		#- This function is called when dialect.bind_typing is BindTyping.SETINPUTSIZES
+		#- JayDeBeApi's cursor.setinputsizes method is currently empty / undefined.
+		breakpoint() #-
+		if self.positional:
+			# not usually used, here to support if someone is modifying
+			# the dialect to use positional style
+			cursor.setinputsizes(
+				*[dbtype for key, dbtype, sqltype in list_of_tuples]
+			)
+		else:
+			collection = (
+				(key, dbtype)
+				for key, dbtype, sqltype in list_of_tuples
+				if dbtype
+			)
+
+			cursor.setinputsizes(**{key: dbtype for key, dbtype in collection})
+
 
 #i  def create_xid(self) -> Any:
 	#- def create_xid(self) -> Any: # Inherit from DefaultDialect
@@ -2407,9 +2880,13 @@ class HyperSqlDialect(default.DefaultDialect):
 			return True
 
 		# Log unhandled exceptions...
-		if True or isinstance(e, (self.dbapi.Error, self.dbapi.Warning)): # TODO: remove 'True or'
-			raise NotImplementedError('Update is_disconnect to ')
-			return True
+		if isinstance(e, (self.dbapi.Error, self.dbapi.Warning)): # TODO: remove 'True or'
+			print('### repr e:', repr(e))
+			print('### repr self.dbapi.Error:', repr(self.dbapi.Error))
+			print('### repr self.dbapi.Warning:', repr(self.dbapi.Warning))
+			print('### str e:', str(e))
+			breakpoint() #-
+			raise NotImplementedError("Unhandled exception. Update the method 'HyperSqlDialect.is_disconnect'")
 		# TODO: Remove the above test
 
 		return False
@@ -2578,4 +3055,4 @@ class HyperSqlDialect(default.DefaultDialect):
 	# TODO: verify the recently added setting above is required, and works as expected.
 	# TODO: find out where the above property is from - it's not part of the Dialect interface.
 
-
+breakpoint() #-

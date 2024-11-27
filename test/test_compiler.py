@@ -88,6 +88,7 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
 			m,
 			Column("x", Integer),
 			prefixes=["GLOBAL TEMPORARY"],
+			#- Should GLOBAL TEMPORARY be specified as a prefix or hsqldb_type? See construct_arguments in base.py
 			hsqldb_on_commit="PRESERVE ROWS",
 		)
 		self.assert_compile(

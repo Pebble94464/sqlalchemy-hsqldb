@@ -103,7 +103,7 @@ class HyperSqlRequirements(SuiteRequirements):
         SQLAlchemy generates this with the :func:`_sql.values` function.
 
         """
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def standard_cursor_sql(self):
@@ -867,8 +867,8 @@ class HyperSqlRequirements(SuiteRequirements):
         literal string, e.g. via the TypeEngine.literal_processor() method.
 
         """
-
-        return exclusions.closed()
+        #- return exclusions.closed() # jsn: currently working on DateTime. Quick check to see if datetime_literals work.
+        return exclusions.open()
 
     @property
     def datetime(self):
@@ -899,6 +899,7 @@ class HyperSqlRequirements(SuiteRequirements):
 
         """
         return exclusions.open()
+	
 
     @property
     def time_implicit_bound(self):

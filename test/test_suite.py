@@ -10,7 +10,8 @@
 # then disable them as appropriate.
 #
 # TODO: remove tests that have been commented out.
-
+# TODO: implement tests for TIME_WITH_TIMEZONE, similar to TIME tests.
+# TODO: implement tests for TIMESTAMP_WITH_TIMEZONE, similar to TIMESTAMP or DATETIME tests.
 
 # Import the entire test suite...
 from sqlalchemy.testing.suite import *
@@ -37,6 +38,7 @@ from sqlalchemy.testing.suite import DateTimeTest as _DateTimeTest
 from sqlalchemy.testing.suite import (
     DifficultParametersTest as _DifficultParametersTest,
 )
+from sqlalchemy.testing.suite import ExceptionTest as _ExceptionTest
 from sqlalchemy.testing.suite import ExistsTest as _ExistsTest
 from sqlalchemy.testing.suite import (
     ExpandingBoundInTest as _ExpandingBoundInTest,
@@ -402,6 +404,19 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 # #         # "[BracketsAndCase]", "dot_s", and "q?marks" cases
 # #         return
 
+class ExceptionTest(_ExceptionTest):
+	@testing.skip('hsqldb', reason='HSQLDB seems to accept non-ASCII chars, so possibly no way to raise an error.')
+	def test_exception_with_non_ascii(self):
+		return
+	# The original test generates the query "SELECT méil"
+	# HSQLDB doesn't allow direct selection of a literal value, but it will
+	# succeed if we try  "SELECT * FROM (VALUES('méil'))", or
+	# "SELECT méil FROM (VALUES (NULL)) AS myvalues (méil)"
+	# I'm unsure why this test expects a database error.
+	# The original test notes there's no way to generate a non-ASCII error
+	# message for some drivers.
+	# TODO: investigate further.
+	# pytest -rP -x --db hsqldb test/test_suite.py::ExceptionTest::test_exception_with_non_ascii
 
 # # class ExistsTest(_ExistsTest):
 # #     @testing.skip("access")

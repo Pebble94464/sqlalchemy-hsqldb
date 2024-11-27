@@ -1,6 +1,29 @@
 
 from . import base
-from . import jaydebeapi
+
+# There are two ways we can import jaydebeapi.py here...
+# 1 - immediately:
+if True:
+	# This block can be enabled / disabled with no apparent effect other than
+	# when jaydebeapi.py gets loaded.
+	from . import jaydebeapi
+
+	base.dialect = dialect = jaydebeapi.dialect # HyperSqlDialect_jaydebeapi
+	# (The built-in dialects set base.dialect but Access dialect doesn't). Why?
+
+# 2 - delayed:
+# The registry module provides a means of installing dialect entry points
+# without the use of setuptools.
+from sqlalchemy.dialects import registry
+registry.register(
+	"hsqldb.jaydebeapi", "sqlalchemy_hsqldb.jaydebeapi",
+	"HyperSqlDialect_jaydebeapi"
+)
+
+#- If both 1 and 2 are disabled, the dialect still appears to work in my
+#- development environment. Unsure why.
+#- TODO: review whether HyperSqlDialect_jaydebeapi need to be imported here.
+
 
 # TODO: Import classes from base, and any other modules required...
 """
@@ -24,7 +47,6 @@ from .base import (
 """
 
 
-
 # TODO: Set __all__ to explicitly define which classes this module exports...
 """
 # The access module doesn't do this, but the built-in modules do, e.g.
@@ -35,20 +57,3 @@ __all__ = (
     "BOOLEAN",
 )
 """
-
-# TODO: Set the default dialect, if required...
-"""
-base.dialect = dialect = jaydebeapi.dialect
-
-The built-in dialects set this, but the Access dialect doesn't.
-Is 'dialect' actually declared anywhere in base.py? Can't find it.
-"""
-
-# TODO: Set __version__ if required
-"""
-__version__ = "0.1.0.dev0"
-
-Only the Acccess dialect seems to set its version here.
-Remove if unused.
-"""
-
