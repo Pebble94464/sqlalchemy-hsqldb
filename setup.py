@@ -34,7 +34,7 @@ setup(
     },
     packages=find_packages(include=["sqlalchemy_hsqldb"]),
     include_package_data=True,
-    install_requires=["SQLAlchemy", "JayDeBeApi"],
+    install_requires=["SQLAlchemy", "jaydebeapi-hsqldb"],
     zip_safe=False,
     # Specify entry points...
     entry_points={
