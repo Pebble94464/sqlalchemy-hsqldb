@@ -1,4 +1,6 @@
 /.hidden_secrets/
+build/
+dist/
 /env/
 /sqlalchemy_hsqldb/__pycache__/
 /sqlalchemy_hsqldb.egg-info
