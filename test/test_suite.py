@@ -1,14 +1,7 @@
-# TODO: This file is based on the one for Access. Needs adapting.
-#
-# Update...
-# It seems most of the tests here, if not all of them, have been implemented
-# to override the base tests, thus 'skipping' them.
-#
-# I'm currently unsure what effect the decorator @testing.skip("access") has.
-#
-# As a starting point for testing HSQLDB, we should re-enable all tests and
-# then disable them as appropriate.
-#
+
+# HSQLDB testing is currently in an incomplete state. (2024-11-27)
+# Most of tests here are overrides to skip certain tests.
+# TODO: re-enable all tests and only disable those that do not apply.
 # TODO: remove tests that have been commented out.
 # TODO: implement tests for TIME_WITH_TIMEZONE, similar to TIME tests.
 # TODO: implement tests for TIMESTAMP_WITH_TIMEZONE, similar to TIMESTAMP or DATETIME tests.
