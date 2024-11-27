@@ -4,9 +4,9 @@ A HyperSQL dialect for SQLAlchemy
 
 Description
 -----------
-The mighty objective of this project is to enable 
+The humble objective of this project is to enable 
 `SQLAlchemy <https://www.sqlalchemy.org/>`_ support for
-`HyperSQL <https://hsqldb.org/>`_ 2.0 databases (aka HSQLDB).
+`HyperSQL <https://hsqldb.org/>`_ 2.0 databases (a.k.a. HSQLDB).
 
 As an initial release this version has limitations and still contains much
 debug code. However the great news is "It works on my Windows based system",
@@ -27,13 +27,16 @@ sqlalchemy-hsqldb is distributed under the
 Installation
 ------------
 TODO: installation instructions
+
 TODO: publish package on pypi.
+
 ::
 pip install sqlalchemy-hsqldb
 
 Configuration
 -------------
 TODO: write configuration section
+
 # sqlalchemy-hsqldb://username:password@host:port/database
 
 Getting Started
