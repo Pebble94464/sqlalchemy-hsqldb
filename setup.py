@@ -26,7 +26,7 @@ setup(
         "Topic :: Database :: Front-Ends",
         "Operating System :: OS Independent",
     ],
-    keywords="SQLAlchemy dialect hsqld hypersql",
+    keywords="SQLAlchemy dialect hsqld hsqldb hypersql",
     project_urls={
         "Documentation": "https://github.com/Pebble94464/sqlalchemy-hsqldb/wiki",
         "Source": "https://github.com/Pebble94464/sqlalchemy-hsqldb",
