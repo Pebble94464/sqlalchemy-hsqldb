@@ -103,7 +103,7 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 	execution_ctx_cls = HyperSqlExecutionContext_jaydebeapi
 	#- execution context
 
-	# TODO: Clean up the init function below after debugging. Is the method actually required?
+	# TODO: Clean up and remove the init function below after debugging if no longer used.
 	def __init__(self, **kwargs):
 		HyperSqlDialect.__init__(self, **kwargs)
 
@@ -142,7 +142,7 @@ class HyperSqlDialect_jaydebeapi(HyperSqlDialect):
 	#- OK
 	@classmethod
 	def import_dbapi(cls) -> ModuleType:
-		m = __import__("jaydebeapi")
+		m = __import__("jaydebeapi_hsqldb")
 		if False:
 			m._unknownSqlTypeConverter = _intercept_unknown_types
 		# TODO: remove _intercept_unknown_types when all types are known # 2014-09-06
