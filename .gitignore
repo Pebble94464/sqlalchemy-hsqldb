@@ -1,4 +1,5 @@
-/.hidden_secrets/
+.hidden_secrets/
+.vscode/
 build/
 dist/
 env/
