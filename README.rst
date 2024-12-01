@@ -35,7 +35,8 @@ accessed by specifying a URL (not a file URL). See:
 
 Older versions of HyperSQL are not currently supported, including those used by
 OpenOffice.org and LibreOffce.  This may change in the future.  However both
-applications can easily be configured to connect to a HyperSQL 2.0 database.
+applications can be configured relatively easily to connect to a HyperSQL 2.0
+database.
 
 Please ensure the architecture of any software components installed match,
 including Java and Python environments, HyperSQL, and applications used.
@@ -47,18 +48,21 @@ Installation
 Packages for installing sqlalchemy-hsqldb will soon be available from
 `pypi.org <https://pypi.org/>`_
 To install sqlalchemy-hsqldb from pypi.org, open a command prompt and type:
+
 .. code-block:: sh
 
 	pip install sqlalchemy-hsqldb
 
-Alternatively the dialect and driver can be downloaded from repositories
-on GitHub:
-- Dialect: `repository <https://github.com/Pebble94464/sqlalchemy-hsqldb.git>`_
-- Driver:  `repository <https://github.com/Pebble94464/jaydebeapi-hsqldb.git>`_
+Alternatively the dialect and its driver can be downloaded from the
+repositories on GitHub:
+
+* Dialect: `repository <https://github.com/Pebble94464/sqlalchemy-hsqldb.git>`_
+* Driver:  `repository <https://github.com/Pebble94464/jaydebeapi-hsqldb.git>`_
 
 The driver module probably needs installing before the dialect. Use the
-'pip install <path>' syntax to install, where <path> points to your local copy,
-e.g.
+'pip install <path>' syntax to install, where <path> points to where your local
+copy is installed.
+
 .. code-block:: sh
 
 	pip install ./jaydebeapi-hsqldb
@@ -69,6 +73,7 @@ Post-install Configuration
 Your system needs to know where the Java Runtime Environment is installed.
 If not detected automatically you may need to add 'JAVA_HOME' or 'JRE_HOME'
 to your environment variables.
+
 .. code-block:: sh
 	set "JAVA_HOME=C:\Program Files\Java\jre-1.8\bin"
 
@@ -86,7 +91,7 @@ begin writing Python code.  The example below is provided as a minimal example,
 designed to get you connected to the database as quickly as possible, but you
 will need to update some parameters to match your configuration.
 
-.. code-block:: py
+.. code-block:: python
 	from sqlalchemy import create_engine
 
 	import os
@@ -136,13 +141,12 @@ If you're struggling to get sqlalchemy-hsqldb working here are a few things you 
 * If using HyperSQL in conjunction with other software such as OpenOffice.org or LibreOffce, verify they're working first.
 * If you suspect a permissions issue, try installing and running with an administrator account.
 * If you suspect a firewall issue, temporarily disable the firewall to see if this is the case.
-* If you suspect some other configuration issue, ensure all paths specified are correct.
-Use back slashes or forward slashes as appropriate for your OS. Do they need escaping?
+* If you suspect some other configuration issue, ensure all paths specified are correct. Use back slashes or forward slashes as appropriate for your OS. Do they need escaping?
 
 * Submit a question via StackOverflow!
-It's quite possible others have already encountered the same issue and SO can
-often provide a quick response. Tag your question with an appropriate tag, such
-as 'sqlalchemy-hsqldb', which I can monitor.
+	It's quite possible others have already encountered the same issue and SO can
+	often provide a quick response. Tag your question with an appropriate tag, such
+	as 'sqlalchemy-hsqldb', which I can monitor.
 
 If you happen to find a bug, please feel welcome to submit a report via GitHub:
 * `sqlalchemy-hsqldb issues <https://github.com/Pebble94464/sqlalchemy-hsqldb/issues>_`
