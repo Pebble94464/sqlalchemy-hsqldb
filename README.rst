@@ -146,7 +146,7 @@ If you're struggling to get sqlalchemy-hsqldb working here are a few things you 
 * Submit a question via StackOverflow!
 	It's quite possible others have already encountered the same issue and SO can
 	often provide a quick response. Tag your question with an appropriate tag, such
-	as 'sqlalchemy-hsqldb', which I can monitor.
+	as 'sqlalchemy-hsqldb', which I can then monitor.
 
 If you think you've found a bug please feel welcome to submit a report via GitHub:
 
