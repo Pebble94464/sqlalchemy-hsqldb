@@ -56,8 +56,8 @@ To install sqlalchemy-hsqldb from pypi.org, open a command prompt and type:
 Alternatively the dialect and its driver can be downloaded from the
 repositories on GitHub:
 
-* Dialect: `repository <https://github.com/Pebble94464/sqlalchemy-hsqldb.git>`_
-* Driver:  `repository <https://github.com/Pebble94464/jaydebeapi-hsqldb.git>`_
+* Dialect: `sqlalchemy-hsqldb repository <https://github.com/Pebble94464/sqlalchemy-hsqldb.git>`_
+* Driver:  `jaydebeapi-hsqldb repository <https://github.com/Pebble94464/jaydebeapi-hsqldb.git>`_
 
 The driver module probably needs installing before the dialect. Use the
 'pip install <path>' syntax to install, where <path> points to where your local
@@ -148,10 +148,10 @@ If you're struggling to get sqlalchemy-hsqldb working here are a few things you 
 	often provide a quick response. Tag your question with an appropriate tag, such
 	as 'sqlalchemy-hsqldb', which I can monitor.
 
-If you happen to find a bug, please feel welcome to submit a report via GitHub:
-* `sqlalchemy-hsqldb issues <https://github.com/Pebble94464/sqlalchemy-hsqldb/issues>_`
-* `jaydebeapi-hsqldb issues <https://github.com/Pebble94464/jaydebeapi-hsqldb/issues>_`
+If you think you've found a bug please feel welcome to submit a report via GitHub:
 
+* `sqlalchemy-hsqldb issues <https://github.com/Pebble94464/sqlalchemy-hsqldb/issues>`_
+* `jaydebeapi-hsqldb issues <https://github.com/Pebble94464/jaydebeapi-hsqldb/issues>`_
 
 Changelog
 ---------
