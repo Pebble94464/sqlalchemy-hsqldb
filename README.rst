@@ -19,8 +19,6 @@ JDBC connectivity and a DB-API 2.0 interface. The module should install itself
 automatically. If not, my project can be found here on GitHub:
 `jaydebeapi-hsqldb <https://github.com/Pebble94464/jaydebeapi-hsqldb.git>`_
 
-.. TODO: detail system it's known to work with, i.e. jdk8, 32 or 64 bit?
-
 License
 -------
 sqlalchemy-hsqldb is distributed under the
@@ -45,10 +43,6 @@ Mixing 32 and 64-bit software is not advised.
 
 Installation
 ------------
-..
-	TODO: installation instructions
-	TODO: publish package on pypi.
-	TODO: Example install from GitHub, e.g. pip install git+https://github.com/jpype-project/jpype.git
 
 Packages for installing sqlalchemy-hsqldb will soon be available from
 `pypi.org <https://pypi.org/>`_
@@ -92,7 +86,6 @@ begin writing Python code.  The example below is provided as a minimal example,
 designed to get you connected to the database as quickly as possible, but you
 will need to update some parameters to match your configuration.
 
-# sqlalchemy-hsqldb://username:password@host:port/database
 .. code-block:: py
 	from sqlalchemy import create_engine
 
