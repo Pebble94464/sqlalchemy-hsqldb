@@ -1,10 +1,11 @@
+=================
 sqlalchemy-hsqldb
 =================
-A HyperSQL dialect for SQLAlchemy
+SQLAlchemy dialect for HyperSQL 2.0 (HSQLDB)
 
 Description
 -----------
-The humble objective of this project is to enable 
+The objective of this project is to enable 
 `SQLAlchemy <https://www.sqlalchemy.org/>`_ support for
 `HyperSQL <https://hsqldb.org/>`_ 2.0 databases (a.k.a. HSQLDB).
 
@@ -25,7 +26,7 @@ sqlalchemy-hsqldb is distributed under the
 `MIT license <https://opensource.org/licenses/MIT>`_.
 
 Prerequisites
-------------
+-------------
 You'll need a copy of the Java Runtime Environment (JRE) installed, or Java
 Development Kit (JDK).  See: `www.java.com <https://www.java.com/>`_
 
@@ -75,6 +76,7 @@ If not detected automatically you may need to add 'JAVA_HOME' or 'JRE_HOME'
 to your environment variables.
 
 .. code-block:: sh
+
 	set "JAVA_HOME=C:\Program Files\Java\jre-1.8\bin"
 
 The jaydebeapi-hsqldb module also needs to know where HyperSQL's JAR file is
@@ -82,6 +84,7 @@ located. At the moment this can be specified using another environment
 variable named 'CLASSPATH', (but this method of specifing the location will
 likely change in a future release). For example, on Windows...
 .. code-block:: sh
+
 	set "CLASSPATH=/some_folder/hsqldb-osgi-jdk8.jar"
 
 Getting Started
@@ -92,6 +95,7 @@ designed to get you connected to the database as quickly as possible, but you
 will need to update some parameters to match your configuration.
 
 .. code-block:: python
+
 	from sqlalchemy import create_engine
 
 	import os
@@ -108,7 +112,7 @@ will need to update some parameters to match your configuration.
 		# Call SQLAlchemy's create_engine function with your connection string.
 		# The basic format is:
 		#   <dialect+driver>://<user>:<password>@<hostname>:<port>/<db name>
-		engine = create_engine("hsqldb+jaydebeapi://SA:@localhost/test2", echo=True)
+		engine = create_engine("hsqldb+jaydebeapi://SA:@localhost/db1", echo=True)
 
 		try:
 			conn = engine.connect()
@@ -131,13 +135,13 @@ halt. Due to be removed in the next release.
 Troubleshooting
 ---------------
 
-This project was coded and tested on a 64-bit Windows system. It should work on
-other platforms too, but you may the documentation and example code is Windows
-centric at present.
+This project was coded and tested on a 64-bit Windows system. It should work on 
+other platforms too, but you may find the code examples and docs need adapting.
 
 If you're struggling to get sqlalchemy-hsqldb working here are a few things you can try:
 
 * Avoid mixing 32-bit and 64-bit software components
+* If the Java Runtime Environment (JRE) is not automatically detected you may need to add 'JAVA_HOME' or 'JRE_HOME' to your environment variables.
 * If using HyperSQL in conjunction with other software such as OpenOffice.org or LibreOffce, verify they're working first.
 * If you suspect a permissions issue, try installing and running with an administrator account.
 * If you suspect a firewall issue, temporarily disable the firewall to see if this is the case.
@@ -156,12 +160,4 @@ If you think you've found a bug please feel welcome to submit a report via GitHu
 Changelog
 ---------
 	0.1.0	initial release
-..
-	Contributing
-	------------
 
-	Testing
-	-------
-
-	Links
-	-----
