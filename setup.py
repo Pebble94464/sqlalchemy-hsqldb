@@ -2,14 +2,11 @@ import os
 
 from setuptools import setup, find_packages
 
-with open("README.rst", "r") as fh:
-    LONG_DESC :str = fh.read()
-
 setup(
     name="sqlalchemy-hsqldb",
     version="0.1.0",
-    description="HSQLDB dialect for SQLAlchemy",
-    long_description=LONG_DESC,
+    description="SQLAlchemy dialect for HyperSQL 2.0 (HSQLDB)",
+    long_description=open('README.rst').read(),
     long_description_content_type="text/x-rst",
     author="Pebble94464",
     author_email="sqlalchemy-hsqldb@pebble.plus.com",
