@@ -1,11 +1,3 @@
-# JSN:
-# This file sets up directives regarding database capabilities.
-#
-# WIP:
-# The properties of the HyperSqlRequirements class below have been copied in from SuiteRequirements,
-# more or less as-is, except for the addition of the 'array_type' property.
-# Still need to consider which properties are appropriate for HSQLDB and set them accordingly.
-
 import platform
 from sqlalchemy.testing import asyncio as _test_asyncio
 from sqlalchemy.testing import exclusions
@@ -13,84 +5,58 @@ from sqlalchemy.testing.exclusions import only_on
 from sqlalchemy import create_engine
 from sqlalchemy import util
 from sqlalchemy.pool import QueuePool
-
 from sqlalchemy.testing.requirements import SuiteRequirements
-# The description for module "sqlalchemy.testing.requirements" reads:
-#	Global database feature support policy.
-#	Provides decorators to mark tests requiring specific feature support from the target database.
-#	External dialect test suites should subclass SuiteRequirements to provide specific inclusion/exclusions.
 
 class HyperSqlRequirements(SuiteRequirements):
-	# WIP:	the properties below have been copied as-is from SuiteRequirements,
-	#		with the exception of 'array_type', which is defined in SQLAlchemy's
-	#		DefaultRequirements class (sqlalchemy\test\requirements.py) and
-	#		the Requirements class for Access.
-	# 
-	#		Failing to define 'array_type' causes an error when testing begins:
-	#			AttributeError: 'HyperSqlRequirements' object has no attribute 'array_type'
 
     @property
     def array_type(self):
         return exclusions.closed()
-	# Access returns exclusions.closed(). It's unclear what the default should be.
-
-	# All other properties below are defined in the base class 'SuiteRequirements' class'.
-	# TODO: Consider removing any property that doesn't differ from returning its default value. BTW, Acccess's Requirements class defines just 19.
 
     @property
     def create_table(self):
         """target platform can emit basic CreateTable DDL."""
-
         return exclusions.open()
 
     @property
     def drop_table(self):
         """target platform can emit basic DropTable DDL."""
-
         return exclusions.open()
 
     @property
     def table_ddl_if_exists(self):
         """target platform supports IF NOT EXISTS / IF EXISTS for tables."""
-
         return exclusions.closed()
 
     @property
     def index_ddl_if_exists(self):
         """target platform supports IF NOT EXISTS / IF EXISTS for indexes."""
-
         return exclusions.closed()
 
     @property
     def uuid_data_type(self):
         """Return databases that support the UUID datatype."""
-
         return exclusions.closed()
-    # Access returns exclusions.open()
 
     @property
     def foreign_keys(self):
         """Target database must support foreign keys."""
-
         return exclusions.open()
 
     @property
     def foreign_keys_reflect_as_index(self):
         """Target database creates an index that's reflected for
         foreign keys."""
-
         return exclusions.closed()
 
     @property
     def unique_index_reflect_as_unique_constraints(self):
         """Target database reflects unique indexes as unique constrains."""
-
         return exclusions.closed()
 
     @property
     def unique_constraints_reflect_as_index(self):
         """Target database reflects unique constraints as indexes."""
-
         return exclusions.closed()
 
     @property
@@ -101,7 +67,6 @@ class HyperSqlRequirements(SuiteRequirements):
              AS some_table(col1, col2)
 
         SQLAlchemy generates this with the :func:`_sql.values` function.
-
         """
         return exclusions.open()
 
@@ -120,16 +85,13 @@ class HyperSqlRequirements(SuiteRequirements):
         and instead may work with symbolic objects instead, or dialects that
         aren't working with SQL, so for those this requirement can be marked
         as excluded.
-
         """
-
         return exclusions.open()
 
     @property
     def on_update_cascade(self):
         """target database must support ON UPDATE..CASCADE behavior in
         foreign keys."""
-
         return exclusions.open()
 
     @property
@@ -158,31 +120,26 @@ class HyperSqlRequirements(SuiteRequirements):
 
         def go(config):
             return isinstance(config.db.pool, QueuePool)
-
         return exclusions.only_if(go)
 
     @property
     def self_referential_foreign_keys(self):
         """Target database must support self-referential foreign keys."""
-
         return exclusions.open()
 
     @property
     def foreign_key_ddl(self):
         """Target database must support the DDL phrases for FOREIGN KEY."""
-
         return exclusions.open()
 
     @property
     def named_constraints(self):
         """target database must support names for constraints."""
-
         return exclusions.open()
 
     @property
     def implicitly_named_constraints(self):
         """target database must apply names to unnamed constraints."""
-
         return exclusions.open()
 
     @property
@@ -199,7 +156,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def subqueries(self):
         """Target database must support subqueries."""
-
         return exclusions.open()
 
     @property
@@ -207,18 +163,14 @@ class HyperSqlRequirements(SuiteRequirements):
         """target database can render OFFSET, or an equivalent, in a
         SELECT.
         """
-
         return exclusions.open()
-    # Access returns exclusions.closed() # Access does LIMIT (via TOP) but not OFFSET
 
     @property
     def bound_limit_offset(self):
         """target database can render LIMIT and/or OFFSET using a bound
         parameter
         """
-
         return exclusions.open()
-    # Access returns exclusions.closed()
 
     @property
     def sql_expression_limit_offset(self):
@@ -226,9 +178,7 @@ class HyperSqlRequirements(SuiteRequirements):
         SQL expression, such as one that uses the addition operator.
         parameter
         """
-
         return exclusions.open()
-    # Access returns exclusions.closed()
 
     @property
     def parens_in_union_contained_select_w_limit_offset(self):
@@ -241,7 +191,6 @@ class HyperSqlRequirements(SuiteRequirements):
 
         """
         return exclusions.open()
-    # Access returns exclusions.closed()
 
     @property
     def parens_in_union_contained_select_wo_limit_offset(self):
@@ -260,20 +209,16 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def boolean_col_expressions(self):
         """Target database must support boolean expressions as columns"""
-
         return exclusions.closed()
 
     @property
     def nullable_booleans(self):
         """Target database allows boolean columns to store NULL."""
-
         return exclusions.open()
-    # Access returns exclusions.closed() # Access Yes/No doesn't allow null
 
     @property
     def nullsordering(self):
         """Target backends that support nulls ordering."""
-
         return exclusions.closed()
 
     @property
@@ -309,7 +254,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def ctes(self):
         """Target database supports CTEs"""
-
         return exclusions.closed()
 
     @property
@@ -318,21 +262,18 @@ class HyperSqlRequirements(SuiteRequirements):
         or DELETE statement which refers to the CTE in a correlated subquery.
 
         """
-
         return exclusions.closed()
 
     @property
     def ctes_on_dml(self):
         """target database supports CTES which consist of INSERT, UPDATE
         or DELETE *within* the CTE, e.g. WITH x AS (UPDATE....)"""
-
         return exclusions.closed()
 
     @property
     def autoincrement_insert(self):
         """target platform generates new surrogate integer primary key values
         when insert() is executed, excluding the pk column."""
-
         return exclusions.open()
 
     @property
@@ -345,7 +286,6 @@ class HyperSqlRequirements(SuiteRequirements):
         after the autocommit, then this rule can be open.
 
         """
-
         return exclusions.open()
 
     @property
@@ -357,7 +297,6 @@ class HyperSqlRequirements(SuiteRequirements):
         SELECT x + y AS somelabel FROM table GROUP BY x + y
 
         """
-
         return exclusions.open()
 
     @property
@@ -387,7 +326,6 @@ class HyperSqlRequirements(SuiteRequirements):
     def empty_inserts(self):
         """target platform supports INSERT with no values, i.e.
         INSERT DEFAULT VALUES or equivalent."""
-
         return exclusions.only_if(
             lambda config: config.db.dialect.supports_empty_insert
             or config.db.dialect.supports_default_values
@@ -399,19 +337,16 @@ class HyperSqlRequirements(SuiteRequirements):
     def empty_inserts_executemany(self):
         """target platform supports INSERT with no values, i.e.
         INSERT DEFAULT VALUES or equivalent, within executemany()"""
-
         return self.empty_inserts
 
     @property
     def insert_from_select(self):
         """target platform supports INSERT from a SELECT."""
-
         return exclusions.open()
 
     @property
     def delete_returning(self):
         """target platform supports DELETE ... RETURNING."""
-
         return exclusions.only_if(
             lambda config: config.db.dialect.delete_returning,
             "%(database)s %(does_support)s 'DELETE ... RETURNING'",
@@ -420,7 +355,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def insert_returning(self):
         """target platform supports INSERT ... RETURNING."""
-
         return exclusions.only_if(
             lambda config: config.db.dialect.insert_returning,
             "%(database)s %(does_support)s 'INSERT ... RETURNING'",
@@ -429,7 +363,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def update_returning(self):
         """target platform supports UPDATE ... RETURNING."""
-
         return exclusions.only_if(
             lambda config: config.db.dialect.update_returning,
             "%(database)s %(does_support)s 'UPDATE ... RETURNING'",
@@ -442,7 +375,6 @@ class HyperSqlRequirements(SuiteRequirements):
         as many rows come back as do parameter sets were passed.
 
         """
-
         return exclusions.only_if(
             lambda config: config.db.dialect.insert_executemany_returning,
             "%(database)s %(does_support)s 'RETURNING of "
@@ -463,7 +395,6 @@ class HyperSqlRequirements(SuiteRequirements):
         """Target platform supports the syntax
         "(x, y) IN ((x1, y1), (x2, y2), ...)"
         """
-
         return exclusions.closed()
 
     @property
@@ -475,14 +406,12 @@ class HyperSqlRequirements(SuiteRequirements):
     def duplicate_names_in_cursor_description(self):
         """target platform supports a SELECT statement that has
         the same name repeated more than once in the columns list."""
-
         return exclusions.open()
 
     @property
     def denormalized_names(self):
         """Target database must have 'denormalized', i.e.
         UPPERCASE as case insensitive names."""
-
         return exclusions.skip_if(
             lambda config: not config.db.dialect.requires_name_normalize,
             "Backend does not require denormalized names.",
@@ -492,7 +421,6 @@ class HyperSqlRequirements(SuiteRequirements):
     def multivalues_inserts(self):
         """target database must support multiple VALUES clauses in an
         INSERT statement."""
-
         return exclusions.skip_if(
             lambda config: not config.db.dialect.supports_multivalues_insert,
             "Backend does not support multirow inserts.",
@@ -510,7 +438,6 @@ class HyperSqlRequirements(SuiteRequirements):
     def arraysize(self):
         """dialect includes the required pep-249 attribute
         ``cursor.arraysize``"""
-
         return exclusions.open()
 
     @property
@@ -551,7 +478,6 @@ class HyperSqlRequirements(SuiteRequirements):
     def schemas(self):
         """Target database must support external schemas, and have one
         named 'test_schema'."""
-
         return only_on(lambda config: config.db.dialect.supports_schemas)
 
     @property
@@ -586,13 +512,11 @@ class HyperSqlRequirements(SuiteRequirements):
     def default_schema_name_switch(self):
         """target dialect implements provisioning module including
         set_default_schema_on_connection"""
-
         return exclusions.closed()
 
     @property
     def server_side_cursors(self):
         """Target dialect must support server side cursors."""
-
         return exclusions.only_if(
             [lambda config: config.db.dialect.supports_server_side_cursors],
             "no server side cursors support",
@@ -601,7 +525,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def sequences(self):
         """Target database must support SEQUENCEs."""
-
         return exclusions.only_if(
             [lambda config: config.db.dialect.supports_sequences],
             "no sequence support",
@@ -611,14 +534,12 @@ class HyperSqlRequirements(SuiteRequirements):
     def no_sequences(self):
         """the opposite of "sequences", DB does not support sequences at
         all."""
-
         return exclusions.NotPredicate(self.sequences)
 
     @property
     def sequences_optional(self):
         """Target database supports sequences, but also optionally
         as a means of generating new PK values."""
-
         return exclusions.only_if(
             [
                 lambda config: config.db.dialect.supports_sequences
@@ -650,7 +571,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def reflects_pk_names(self):
         return exclusions.closed()
-    # Access returns exclusions.open()
 
     @property
     def table_reflection(self):
@@ -827,7 +747,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def unbounded_varchar(self):
         """Target database must support VARCHAR with no length"""
-
         return exclusions.open()
 
     @property
@@ -874,21 +793,18 @@ class HyperSqlRequirements(SuiteRequirements):
     def datetime(self):
         """target dialect supports representation of Python
         datetime.datetime() objects."""
-
         return exclusions.open()
 
     @property
     def datetime_timezone(self):
         """target dialect supports representation of Python
         datetime.datetime() with tzinfo with DateTime(timezone=True)."""
-
         return exclusions.closed()
 
     @property
     def time_timezone(self):
         """target dialect supports representation of Python
         datetime.time() with tzinfo with Time(timezone=True)."""
-
         return exclusions.closed()
 
     @property
@@ -923,7 +839,6 @@ class HyperSqlRequirements(SuiteRequirements):
     def datetime_microseconds(self):
         """target dialect supports representation of Python
         datetime.datetime() with microsecond objects."""
-
         return exclusions.open()
     # Access returns exclusions.closed()
 
@@ -949,14 +864,12 @@ class HyperSqlRequirements(SuiteRequirements):
     def datetime_historic(self):
         """target dialect supports representation of Python
         datetime.datetime() objects with historic (pre 1970) values."""
-
         return exclusions.closed()
 
     @property
     def date(self):
         """target dialect supports representation of Python
         datetime.date() objects."""
-
         return exclusions.open()
     # Access returns exclusions.closed()
 
@@ -964,21 +877,18 @@ class HyperSqlRequirements(SuiteRequirements):
     def date_coerces_from_datetime(self):
         """target dialect accepts a datetime object as the target
         of a date column."""
-
         return exclusions.open()
 
     @property
     def date_historic(self):
         """target dialect supports representation of Python
         datetime.datetime() objects with historic (pre 1970) values."""
-
         return exclusions.closed()
 
     @property
     def time(self):
         """target dialect supports representation of Python
         datetime.time() objects."""
-
         return exclusions.open()
     # Access returns exclusions.closed()
 
@@ -986,7 +896,6 @@ class HyperSqlRequirements(SuiteRequirements):
     def time_microseconds(self):
         """target dialect supports representation of Python
         datetime.time() with microsecond objects."""
-
         return exclusions.open()
     # Access returns exclusions.closed()
 
@@ -995,7 +904,6 @@ class HyperSqlRequirements(SuiteRequirements):
         """target database/driver can allow BLOB/BINARY fields to be compared
         against a bound parameter value.
         """
-
         return exclusions.open()
 
     @property
@@ -1011,7 +919,6 @@ class HyperSqlRequirements(SuiteRequirements):
         Basically fails on Oracle.
 
         """
-
         return exclusions.open()
 
     @property
@@ -1085,7 +992,6 @@ class HyperSqlRequirements(SuiteRequirements):
                     return False
                 else:
                     return True
-
         return exclusions.only_if(go)
 
     @property
@@ -1104,20 +1010,17 @@ class HyperSqlRequirements(SuiteRequirements):
                 return (
                     e.dialect._on_connect_isolation_level == "READ COMMITTED"
                 )
-
         return exclusions.only_if(go)
 
     @property
     def json_type(self):
         """target platform implements a native JSON type."""
-
         return exclusions.closed()
 
     @property
     def json_array_indexes(self):
         """target platform supports numeric array indexes
         within a JSON structure"""
-
         return self.json_type
 
     @property
@@ -1186,7 +1089,6 @@ class HyperSqlRequirements(SuiteRequirements):
         See :ticket:`4036`
 
         """
-
         return exclusions.open()
 
     @property
@@ -1225,13 +1127,11 @@ class HyperSqlRequirements(SuiteRequirements):
         """A precision numeric type will return empty significant digits,
         i.e. a value such as 10.000 will come back in Decimal form with
         the .000 maintained."""
-
         return exclusions.closed()
 
     @property
     def infinity_floats(self):
         """The Float type can persist and load float('inf'), float('-inf')."""
-
         return exclusions.closed()
 
     @property
@@ -1278,20 +1178,17 @@ class HyperSqlRequirements(SuiteRequirements):
 
         Added to support Pyodbc bug #351.
         """
-
         return exclusions.open()
 
     @property
     def float_is_numeric(self):
         """target backend uses Numeric for Float/Dual"""
-
         return exclusions.open()
 
     @property
     def text_type(self):
         """Target database must support an unbounded Text() "
         "type such as TEXT or CLOB"""
-
         return exclusions.open()
 
     @property
@@ -1306,14 +1203,12 @@ class HyperSqlRequirements(SuiteRequirements):
     def empty_strings_text(self):
         """target database can persist/return an empty string with an
         unbounded text."""
-
         return exclusions.open()
 
     @property
     def expressions_against_unbounded_text(self):
         """target database supports use of an unbounded textual field in a
         WHERE clause."""
-
         return exclusions.open()
 
     @property
@@ -1324,13 +1219,11 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def savepoints(self):
         """Target database must support savepoints."""
-
         return exclusions.closed()
 
     @property
     def two_phase_transactions(self):
         """Target database must support two-phase transactions."""
-
         return exclusions.closed()
 
     @property
@@ -1410,7 +1303,6 @@ class HyperSqlRequirements(SuiteRequirements):
                 return False
             except NotImplementedError:
                 return True
-
         return exclusions.skip_if(check)
 
     def get_order_by_collation(self, config):
@@ -1478,13 +1370,11 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def timing_intensive(self):
         from . import config
-
         return config.add_to_marker.timing_intensive
 
     @property
     def memory_intensive(self):
         from . import config
-
         return config.add_to_marker.memory_intensive
 
     @property
@@ -1507,7 +1397,6 @@ class HyperSqlRequirements(SuiteRequirements):
                 return False
             else:
                 return True
-
         return exclusions.only_if(check)
 
     @property
@@ -1519,7 +1408,6 @@ class HyperSqlRequirements(SuiteRequirements):
                 return False
             else:
                 return True
-
         return exclusions.skip_if(check)
 
     @property
@@ -1565,7 +1453,6 @@ class HyperSqlRequirements(SuiteRequirements):
                 return False
             else:
                 return True
-
         return exclusions.only_if(check_lib, "patch library needed")
 
     @property
@@ -1608,7 +1495,6 @@ class HyperSqlRequirements(SuiteRequirements):
 
     def _has_sqlite(self):
         from sqlalchemy import create_engine
-
         try:
             create_engine("sqlite://")
             return True
@@ -1618,7 +1504,6 @@ class HyperSqlRequirements(SuiteRequirements):
     @property
     def async_dialect(self):
         """dialect makes use of await_() to invoke operations on the DBAPI."""
-
         return exclusions.closed()
 
     @property
@@ -1630,14 +1515,12 @@ class HyperSqlRequirements(SuiteRequirements):
         def go(config):
             if not _test_asyncio.ENABLE_ASYNCIO:
                 return False
-
             try:
                 import greenlet  # noqa: F401
             except ImportError:
                 return False
             else:
                 return True
-
         return exclusions.only_if(go)
 
     @property

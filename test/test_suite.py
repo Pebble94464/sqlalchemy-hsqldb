@@ -1,8 +1,7 @@
 
-# HSQLDB testing is currently in an incomplete state. (2024-11-27)
+# HSQLDB testing is in an incomplete state. (2024-11-27)
 # Most of tests here are overrides to skip certain tests.
-# TODO: re-enable all tests and only disable those that do not apply.
-# TODO: remove tests that have been commented out.
+# TODO: re-enable all tests and only disable / remove those that do not apply.
 # TODO: implement tests for TIME_WITH_TIMEZONE, similar to TIME tests.
 # TODO: implement tests for TIMESTAMP_WITH_TIMEZONE, similar to TIMESTAMP or DATETIME tests.
 
@@ -69,15 +68,6 @@ class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
 	# handle these correctly.
 	# TODO: Try running this test again when this HSQLDB dialect is more complete.
 
-
-
-# # class CastTypeDecoratorTest(_CastTypeDecoratorTest):
-# #     @testing.skip("access")
-# #     def test_special_type(self):
-# #         # Access SQL does not do CAST in the conventional way
-# #         return
-
-
 class ComponentReflectionTest(_ComponentReflectionTest):
 
 	@testing.skip('hsqldb', reason='Requires further investigation. Temporarily disabled.')
@@ -100,20 +90,8 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 	#
 	# TODO: This test case requires further investigation. Don't permanently disable it!
 
-
-# #     @testing.skip("access")
-# #     def test_get_foreign_keys(self):
-# #         # Access does not support all options tested
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_get_indexes(self):
-# #         # Access does not support all options tested
-# #         return
-
 	@testing.skip('hsqldb', reason='Unique indexes were deprecated in HSQLDB 1.8')
 	def test_get_indexes(self):
-	#- def test_get_indexes(self, connection, use_schema):
 		return
 
 	@testing.combinations((False,), (True, testing.requires.schemas), argnames="use_schema")
@@ -162,11 +140,9 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 		# Table 'no_constraints' has no indexes. Why not simply check the
 		# count of indexes instead of calling _check_list?
 
-
 	@testing.skip('hsqldb', reason='Not yet implemented')
 	def test_get_multi_columns(self):
 		return
-		#- Access comment: test fails due to ODBC driver bug always reporting nullable=True
 	# TODO: enable test after get_multi_columns has been implemented.
 
 #- line 1837
@@ -220,7 +196,6 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 #- line 2188
 	@testing.skip('hsqldb', reason='Not yet implemented')
 	def test_get_multi_pk_constraint(self):
-		#- Access comment: Access does not support all options tested
 		return
 	# TODO: enable test after get_multi_pk_constraint has been implemented.
 
@@ -233,7 +208,6 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 #- line 2241
 	@testing.skip('hsqldb', reason='Not yet implemented')
 	def test_get_multi_indexes(self):
-		#- Access comment: tests fail because we don't support table/column comments
 		return
 	# TODO: enable test after get_multi_indexes has been implemented.
 
@@ -243,18 +217,6 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 	def test_get_multi_unique_constraints(self):
 		return
 	# TODO: enable test after get_multi_unique_constraints has been implemented.
-
-
-# #     @testing.skip("access")
-# #     def test_get_pk_constraint(self):
-# #         # PK constraint reflection (via Access.DAO) is "best effort"
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_get_unique_constraints(self):
-# #         # Access barfs on DDL trying to create a constraint named "i.have.dots"
-# #         return
-
 
 #- line 1886
 	@testing.skip('hsqldb', reason='HSQLDB can create constraints unique_a_b_c or unique_c_a_b, but not both because they use the same columns')
@@ -355,48 +317,6 @@ class ComponentReflectionTest(_ComponentReflectionTest):
 		no_cst = self.tables.no_constraints.name
 		eq_(insp.get_unique_constraints(no_cst, schema=schema), [])
 
-
-
-
-
-# #     @testing.skip("access")
-# #     def test_not_existing_table(self):
-# #         return
-
-
-# # class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
-# #     @testing.skip("access")
-# #     def test_nullable_reflection(self):
-# #         # Access ODBC implementation of the SQLColumns function reports that
-# #         # a column is nullable even when it is not
-# #         return
-
-# # 	#- jsn added...
-# #     # @testing.skip("access", "some reason")
-# #     # def test_numeric_reflection(self):
-# #     #     return
-
-# # class DateTimeTest(_DateTimeTest):
-# #     @testing.skip("access")
-# #     def test_null_bound_comparison(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "Unrecognized keyword WHEN."
-# #         return
-
-
-# # class DifficultParametersTest(_DifficultParametersTest):
-# #     @testing.skip("access")
-# #     def test_round_trip(self):
-# #         # bypass this test because "q?marks" case fails with
-# #         # "COUNT field incorrect"
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_round_trip_same_named_column(self):
-# #         # bypass this test because CREATE TABLE statements fail for
-# #         # "[BracketsAndCase]", "dot_s", and "q?marks" cases
-# #         return
-
 class ExceptionTest(_ExceptionTest):
 	@testing.skip('hsqldb', reason='HSQLDB seems to accept non-ASCII chars, so possibly no way to raise an error.')
 	def test_exception_with_non_ascii(self):
@@ -410,321 +330,3 @@ class ExceptionTest(_ExceptionTest):
 	# message for some drivers.
 	# TODO: investigate further.
 	# pytest -rP -x --db hsqldb test/test_suite.py::ExceptionTest::test_exception_with_non_ascii
-
-# # class ExistsTest(_ExistsTest):
-# #     @testing.skip("access")
-# #     def test_select_exists(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "SELECT statement includes a reserved word or an argument name ..."
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_select_exists_false(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "SELECT statement includes a reserved word or an argument name ..."
-# #         return
-
-
-# # class ExpandingBoundInTest(_ExpandingBoundInTest):
-# #     @testing.skip("access")
-# #     def test_null_in_empty_set_is_false_bindparam(self):
-# #         """Access SQL can't do CASE ... WHEN, but this test would pass if we
-# #         re-wrote the query to be
-
-# #             SELECT (n = 1) AS result
-# #             FROM
-# #                 (
-# #                     SELECT COUNT(*) AS n FROM USysSQLAlchemyDUAL
-# #                     WHERE NULL IN (SELECT NULL FROM USysSQLAlchemyDUAL WHERE 1=0)
-# #                 )
-# #         """
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_null_in_empty_set_is_false_direct(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_null_in_empty_set_is_false(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_empty_set_against_integer_bindparam(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_empty_set_against_integer_direct(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_empty_set_against_string_bindparam(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_empty_set_against_string_direct(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_multiple_empty_sets_bindparam(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_multiple_empty_sets_direct(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_empty_in_plus_notempty_notin(self):
-# #         return
-
-
-# # class FetchLimitOffsetTest(_FetchLimitOffsetTest):
-# #     @testing.skip("access")
-# #     def test_limit_render_multiple_times(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "Query input must contain at least one table or query."
-# #         return
-
-
-# # class HasIndexTest(_HasIndexTest):
-# #     @testing.skip("access")
-# #     def test_has_index(self):
-# #         return
-
-
-# # class HasTableTest(_HasTableTest):
-# #     @testing.skip("access")
-# #     def test_has_table(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_has_table_cache(self):
-# #         return
-
-
-# # class InsertBehaviorTest(_InsertBehaviorTest):
-# #     @testing.skip("access")
-# #     def test_empty_insert(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # [ODBC Microsoft Access Driver] Syntax error in INSERT INTO statement.
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_empty_insert_multiple(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # [ODBC Microsoft Access Driver] Syntax error in INSERT INTO statement.
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_no_results_for_non_returning_insert(self):
-# #         return
-
-
-# # class IntegerTest(_IntegerTest):
-# #     @testing.skip("access")
-# #     def test_huge_int(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # [ODBC Microsoft Access Driver] Optional feature not implemented.
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_huge_int_auto_accommodation(self):
-# #         return
-
-
-# # class JoinTest(_JoinTest):
-# #     @testing.skip("access")
-# #     def test_inner_join_true(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "JOIN expression not supported."
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_inner_join_false(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "JOIN expression not supported."
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_outer_join_false(self):
-# #         # bypass this test because Access ODBC fails with
-# #         # "JOIN expression not supported."
-# #         return
-
-
-# # class LikeFunctionsTest(_LikeFunctionsTest):
-# #     """Access SQL doesn't do ESCAPE"""
-
-# #     @testing.skip("access")
-# #     def test_contains_autoescape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_contains_autoescape_escape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_contains_escape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_contains_unescaped(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_endswith_autoescape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_endswith_autoescape_escape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_endswith_escape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_startswith_autoescape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_startswith_autoescape_escape(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_startswith_escape(self):
-# #         return
-
-
-# # class LongNameBlowoutTest(_LongNameBlowoutTest):
-# #     @testing.skip("access")
-# #     def test_long_convention_name(self):
-# #         # test generates names that are *way* too long for Access
-# #         return
-
-
-# # class NativeUUIDTest(_NativeUUIDTest):
-# #     @testing.skip("access")
-# #     def test_literal_text(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_literal_uuid(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_uuid_round_trip(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_uuid_text_round_trip(self):
-# #         return
-
-
-# # class NumericTest(_NumericTest):
-# #     @testing.skip("access")
-# #     def test_decimal_coerce_round_trip(self):
-# #         # bug in Access SQL: "SELECT ? AS anon_1 ..." returns rubbish with a
-# #         # decimal.Decimal parameter value
-# #         # https://github.com/mkleehammer/pyodbc/issues/624
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_decimal_coerce_round_trip_w_cast(self):
-# #         # bug in Access SQL: "SELECT ? AS anon_1 ..." returns rubbish with a
-# #         # decimal.Decimal parameter value
-# #         # https://github.com/mkleehammer/pyodbc/issues/624
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_float_is_not_numeric(self):
-# #         # test fails because: 'numeric' != 'numeric'
-# #         # (umm, okay …)
-# #         return
-
-
-# # class OrderByLabelTest(_OrderByLabelTest):
-# #     @testing.skip("access")
-# #     def test_composed_multiple(self):
-# #         # SELECT statement too complex for Access SQL
-# #         # "Reserved error (-1001); there is no message for this error."
-# #         return
-
-
-# # class QuotedNameArgumentTest(_QuotedNameArgumentTest):
-# #     # suppress creation of test table(s) since that's where the errors occur
-# #     run_create_tables = None
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_table_options(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_view_definition(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_columns(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_pk_constraint(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_foreign_keys(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_indexes(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_unique_constraints(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_table_comment(self, name):
-# #         return
-
-# #     @testing.skip("access")
-# #     @_QuotedNameArgumentTest.quote_fixtures
-# #     def test_get_check_constraints(self, name):
-# #         return
-
-
-# # class StringTest(_StringTest):
-# #     @testing.skip("access")
-# #     def test_concatenate_clauselist(self):
-# #         return
-
-
-# # class TableDDLTest(_TableDDLTest):
-# #     @testing.skip("access")
-# #     def test_underscore_names(self):
-# #         return
-
-
-# # class TrueDivTest(_TrueDivTest):
-# #     @testing.skip("access")
-# #     def test_floordiv_integer(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_floordiv_integer_bound(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_floordiv_numeric(self):
-# #         return
-
-# #     @testing.skip("access")
-# #     def test_truediv_numeric(self):
-# #         return
