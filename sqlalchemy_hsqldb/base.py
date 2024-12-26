@@ -438,7 +438,9 @@ ischema_names = {
 	# "BOOLEAN": HyperSqlBoolean,
 	"BIGINT": sqltypes.BIGINT,
 
-	"CHARACTER": sqltypes.CHAR,
+	'CLOB': sqltypes.CLOB,
+	'DATALINK': DATALINK,
+
 	"DOUBLE" : sqltypes.DOUBLE, # 64 bit precision floating point number
 	"INTEGER": sqltypes.INTEGER,
 	"NUMERIC": sqltypes.NUMERIC,
