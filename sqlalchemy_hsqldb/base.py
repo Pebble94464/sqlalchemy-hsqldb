@@ -209,28 +209,12 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 		super().__init__(timezone=timezone)
 
 	def bind_processor(self, dialect):
-		#- sends datatype to database
-		assert self.timezone == True, "Timezone must be True for type TIME WITH TIME ZONE"
-
-		def process(value):
-			""" convert datetime.time to java.time.OffsetTime """
-			# <java class 'java.time.OffsetTime'>
-			if value == None:
-				return value
-			assert isinstance(value, datetime.time), 'Expecting value to be a datetime.time'
-			hour = value.hour
-			minute = value.minute
-			second = value.second
-			nano = value.microsecond * 1000
-			timedelta = value.tzinfo.utcoffset(None)
-			JOffsetTime = JClass('java.time.OffsetTime', False)
-			#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetTime.html
-			JZoneOffset = JClass('java.time.ZoneOffset')
-			#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
-			return JOffsetTime.of(hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
-		return process
-
-class _TIME(sqltypes.TIME):
+		def processor(value):
+			assert isinstance(value, datetime.date) or value is None, "bind processor expects datetime.date, datetime.datetime, or None" #-
+			if isinstance(value, datetime.date) == False:
+				return None
+			return dialect.dbapi.Date(value.year, value.month, value.day)
+		return processor
 	__visit_name__ = 'TIME'
 	render_bind_cast = True
 
