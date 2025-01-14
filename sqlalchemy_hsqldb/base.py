@@ -281,17 +281,12 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 
 	def bind_processor(self, dialect):
 		def processor(value):
-			if type(value) != datetime.datetime:
+			if value is None:
 				return None
-			year = value.year - 1900
-			month = value.month - 1
-			day = value.day
-			hour = value.hour
-			minute = value.minute
-			second = value.second
-			nano = value.microsecond * 1000
-			JTimestamp = JClass('java.sql.Timestamp', False)
-			return JTimestamp(year, month, day, hour, minute, second, nano)
+			assert isinstance(value, datetime.datetime)
+			return dialect.dbapi.Timestamp(
+				value.year,	value.month, value.day, value.hour, value.minute,
+				value.second, value.microsecond * 1000)
 		return processor
 
 class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
