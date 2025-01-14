@@ -241,17 +241,13 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 
 	def bind_processor(self, dialect):
 		def process(value):
-			assert isinstance(value, datetime.time), 'time for tellytubbies' #-
-
-			if value.microsecond % 1000 > 0:
-				print('# Warning: potential precision loss while converting from microseconds to milliseconds')
-			# TODO: How best to show potential precision loss, log warning?
-
-			return dialect.dbapi.Time(
-				value.hour,
-				value.minute,
-				value.second
-				)
+			if value is None:
+				return None
+			assert isinstance(value, datetime.time) #-
+			assert hasattr(value, 'microsecond') and value.microsecond == 0 #-
+			# Although the params for dbapi.Time do not include microseconds,
+			# we can store microseconds inside a java.sql.time object if needed
+			return dialect.dbapi.Time(value.hour, value.minute, value.second)
 		return process
 		# TODO: test with other timezone / dst combinations, like -4 hrs UTC Atlantic time (Canada), with and without DST.
 
