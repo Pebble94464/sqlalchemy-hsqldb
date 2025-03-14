@@ -18,8 +18,7 @@ from sqlalchemy.types import Integer
 # from sqlalchemy.types import ARRAY
 # from sqlalchemy.types import BIGINT
 # from sqlalchemy.types import BINARY
-# from sqlalchemy.types import BIT # ImportError: cannot import name 'BIT' from 'sqlalchemy.types'
-# from sqlalchemy.types import BIT
+from sqlalchemy_hsqldb import BIT
 # from sqlalchemy.types import BLOB
 # from sqlalchemy.types import BOOLEAN
 # from sqlalchemy.types import CHAR
@@ -31,7 +30,6 @@ from sqlalchemy.types import Integer
 # from sqlalchemy.types import DOUBLE
 # from sqlalchemy.types import FLOAT
 # from sqlalchemy.types import INTEGER
-# #- 					^^ INTEGER is defined and so vscode has hightlighted it
 # from sqlalchemy.types import JAVA_OBJECT
 # from sqlalchemy.types import LONGNVARCHAR
 # from sqlalchemy.types import LONGVARBINARY
@@ -67,22 +65,8 @@ TEST_SCHEMA_NAME = 's2'
 # # # 	datatype = Date
 # # # 	data = datetime.date(1727, 4, 1)
 
-
 class BitTest(_LiteralRoundTripFixture, fixtures.TablesTest):
-	"""TODO: Class description"""
-	#__requires__ = ("boolean_type",) 			# Many test classes have a __requires__ attribute
-
-	__backend__ = False # was True
-	"""
-	The __backend__ attribute seems to indicate tests should be expanded out
-	for each database backend.  Most of the classes for testing SQLAlchemy's 
-	built-in dialects have this attribute set to 'True'.
-
-	__backend__ and __sparse_backend__ attributes also appear to be
-	considered 'legacy symbols', replaced by test markers perhaps?
-	The __backend__ attribute is processed by
-	\SQLAlchemy\sqlalchemy\lib\sqlalchemy\testing\plugin\pytestplugin.py
-	"""
+	__requires__ = ('bit_type',)  # 'bit_type' is defined in requirements.py
 
 	@classmethod
 	def define_tables(cls, metadata):
@@ -91,81 +75,72 @@ class BitTest(_LiteralRoundTripFixture, fixtures.TablesTest):
 			"bit_table",
 			metadata,
 			Column("id", Integer, primary_key=True, autoincrement=False),
-			Column("value", Boolean),
-			Column("unconstrained_value", Boolean(create_constraint=False)),
+			Column("bit1", BIT),
+			# Column("bit12", BIT), # Currently unsupported bit length
+            Column("bit16", BIT(16)),
 		)
 
-	def test_render_literal_bool(self, literal_round_trip):
-		literal_round_trip(Boolean(), [True, False], [True, False])
+	def test_literal_bit1(self, literal_round_trip):
+		literal_round_trip(BIT, [True], [True]) # params: type, input, output
 
-	def test_round_trip(self, connection):
+	def test_literal_bit16(self, literal_round_trip):
+		literal_round_trip(BIT(16), [b'\xF2\xF3'], [b'\xF2\xF3'])
+
+	comb1 = ((True, b'\xF0\xF0'), (False, b'\xF0\xF1'))
+	@testing.combinations(*comb1, argnames="data1,data2")
+	def test_round_trip(self, data1, data2, connection):
 		bit_table = self.tables.bit_table
-
 		connection.execute(
-			bit_table.insert(),
-			{"id": 1, "value": True, "unconstrained_value": False},
-		)
+			bit_table.insert(), [{"id": 1, "bit1": data1, "bit16": data2},]
+			)
+		row = connection.execute(select(bit_table.c.bit1, bit_table.c.bit16))
+		eq_(row.fetchone(), (data1, data2))
 
-		row = connection.execute(
-			select(bit_table.c.value, bit_table.c.unconstrained_value)
-		).first()
-
-		breakpoint() #-
-		eq_(row, (True, False))
-		assert isinstance(row[0], bool)
-
-	@testing.requires.nullable_booleans
+	@testing.requires.nullable_bits
 	def test_null(self, connection):
 		bit_table = self.tables.bit_table
-
 		connection.execute(
 			bit_table.insert(),
-			{"id": 1, "value": None, "unconstrained_value": None},
+			{"id": 1, "bit1": None, "bit16": None},
 		)
-
 		row = connection.execute(
-			select(bit_table.c.value, bit_table.c.unconstrained_value)
+			select(bit_table.c.bit1, bit_table.c.bit16)
 		).first()
-
 		eq_(row, (None, None))
 
 	def test_whereclause(self):
-		# testing "WHERE <column>" renders a compatible expression
 		bit_table = self.tables.bit_table
 
 		with config.db.begin() as conn:
 			conn.execute(
 				bit_table.insert(),
 				[
-					{"id": 1, "value": True, "unconstrained_value": True},
-					{"id": 2, "value": False, "unconstrained_value": False},
+					{"id": 1, "bit1": True, "bit16": b'\xF2\xF3'},
+					{"id": 2, "bit1": False, "bit16": b'\x00\x00'},
 				],
 			)
-
 			eq_(
 				conn.scalar(
-					select(bit_table.c.id).where(bit_table.c.value)
+					select(bit_table.c.id).where(bit_table.c.bit1 == True)
 				),
 				1,
 			)
 			eq_(
 				conn.scalar(
-					select(bit_table.c.id).where(
-						bit_table.c.unconstrained_value
-					)
+					select(bit_table.c.id).where(bit_table.c.bit16 == b'\xF2\xF3')
 				),
 				1,
 			)
 			eq_(
 				conn.scalar(
-					select(bit_table.c.id).where(~bit_table.c.value)
+					select(bit_table.c.id).where(bit_table.c.bit1 == False)
 				),
 				2,
 			)
 			eq_(
 				conn.scalar(
 					select(bit_table.c.id).where(
-						~bit_table.c.unconstrained_value
+						bit_table.c.bit16 == b'\x00\x00'
 					)
 				),
 				2,
