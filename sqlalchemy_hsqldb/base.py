@@ -215,6 +215,32 @@ class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
 				return None
 			return dialect.dbapi.Date(value.year, value.month, value.day)
 		return processor
+class BIT(sqltypes.TypeEngine):
+	"""An HSQLDB BIT type"""
+	__visit_name__ = 'BIT'
+
+	def __init__(
+		self, length: Optional[int] = None, varying: bool = False
+		) -> None:
+		if varying == True:
+			# HSQLDB requires a length for type BIT VARYING
+			length = length or 1
+
+		if length is not None and length > 1024:
+			raise ValueError('Maximum value for length is 1024.')
+		# TODO: Allow the DB to raise the error instead of doing hit here?
+
+		self.length = length
+		self.varying = varying
+
+	def literal_processor(self, dialect):
+		def process(value):
+			if type(value) == bool:
+				value = "B'%s'" % int(value)
+			else:
+				value = "B'%s'" % ' '.join([bin(x).removeprefix('0b') for x in value])
+			return value
+		return process
 	__visit_name__ = 'TIME'
 	render_bind_cast = True
 
@@ -401,6 +427,7 @@ colspecs = {
 #- The values in ischema_names are subsequently assigned to the 'type' attribute of the object returned by get_columns.
 #-
 ischema_names = {
+	'BIT': BIT,
 
 	# TODO: Mapping BLOB to sqltypes.BLOB is probably the correct way to do it. 
 	# Swap out the mapping to JDBCBlobClient and test again to verify it still works.
@@ -1285,6 +1312,16 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 # TODO: Implement HyperSqlTypeCompiler. About 50-150 lines, 12-25 methods.
 # TODO: Solve mystery. Access dialect has 'type_compiler', others have 'type_compiler_cls'
 class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
+
+	def visit_BIT(self, type_, **kw):
+		if type_.varying == True:
+			assert type_.length is not None, 'BIT VARYING must have a length'
+			compiled = "BIT VARYING(%d)" % type_.length
+		else:
+			compiled = "BIT"
+			if type_.length is not None and type_.length > 0:
+				compiled += "(%d)" % type_.length
+		return compiled
 
 	def visit_TIMESTAMP(self, type_, **kw):
 		if type_.timezone == True:
