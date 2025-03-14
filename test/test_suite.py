@@ -1,19 +1,22 @@
 
-# HSQLDB testing is currently in an incomplete state. (2024-11-27)
-# Most of tests here are overrides to skip certain tests.
+# This file imports SQLAlchemy's testing suite, and also allows us to modify or
+# disable individual tests by overriding them.
+
+# Other tests specific to HSQLDB can be found in the test folder. There's no
+# need to import them here because pytest's automatic discovery will find them.
+
+# The state of HSQLDB testing is currently incomplete (2024-11-27).
 # TODO: re-enable all tests and only disable those that do not apply.
 # TODO: remove tests that have been commented out.
+
 # TODO: implement tests for TIME_WITH_TIMEZONE, similar to TIME tests.
 # TODO: implement tests for TIMESTAMP_WITH_TIMEZONE, similar to TIMESTAMP or DATETIME tests.
+#       ^^ These two might need implementing outside of this file.
 
 # Import the entire test suite...
 from sqlalchemy.testing.suite import *
 import operator
 import sqlalchemy as sa
-
-# WIP: -->
-# import a local test... 
-# from test_compiler import *
 
 from sqlalchemy.testing.suite import (
     BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest,
