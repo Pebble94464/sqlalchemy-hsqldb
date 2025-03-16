@@ -1,7 +1,7 @@
 
 from . import base
 
-# There are two ways we can import jaydebeapi.py here...
+# There are a couple of ways we can import jaydebeapi.py here...
 # 1 - immediately:
 if True:
 	# This block can be enabled / disabled with no apparent effect other than
@@ -12,8 +12,8 @@ if True:
 	# (The built-in dialects set base.dialect but Access dialect doesn't). Why?
 
 # 2 - delayed:
-# The registry module provides a means of installing dialect entry points
-# without the use of setuptools.
+# The registry module provides a way to install dialect entry points without
+# the use of setuptools.
 from sqlalchemy.dialects import registry
 registry.register(
 	"hsqldb.jaydebeapi", "sqlalchemy_hsqldb.jaydebeapi",
@@ -22,38 +22,90 @@ registry.register(
 
 #- If both 1 and 2 are disabled, the dialect still appears to work in my
 #- development environment. Unsure why.
-#- TODO: review whether HyperSqlDialect_jaydebeapi need to be imported here.
+#- TODO: review whether HyperSqlDialect_jaydebeapi needs to be imported here.
 
-
-# TODO: Import classes from base, and any other modules required...
-"""
-# The built-ins do this like...
+from .base import ARRAY
 from .base import BIGINT
 from .base import BINARY
-...
-from .base import YEAR
-from .dml import Insert
-from .dml import insert
-from .expression import match
-from ...util import compat
+from .base import BIT
+from .base import BLOB
+from .base import BOOLEAN
+from .base import CHAR
+from .base import CLOB
+from .base import DATALINK
+from .base import DATE
+from .base import DECIMAL
+# from .base import DISTINCT
+from .base import DOUBLE
+from .base import FLOAT
+from .base import INTEGER
+from .base import JAVA_OBJECT
+from .base import LONGNVARCHAR
+from .base import LONGVARBINARY
+from .base import LONGVARCHAR
+from .base import MULTISET
+from .base import NCHAR
+from .base import NCLOB
+# from .base import NULL # No dialect imports NULL
+from .base import NUMERIC
+from .base import NVARCHAR
+from .base import OTHER
+from .base import REAL
+from .base import REF
+from .base import REF_CURSOR
+from .base import ROWID
+from .base import SMALLINT
+from .base import SQLXML
+from .base import STRUCT
+from .base import TIME
+from .base import TIME_WITH_TIMEZONE
+from .base import TIMESTAMP
+from .base import TIMESTAMP_WITH_TIME_ZONE
+from .base import TINYINT
+from .base import VARBINARY
+from .base import VARCHAR
 
-# Access dialect does it like...
-from .base import (
-    AutoNumber,
-    Byte,
-...
-    YesNo,
-)
-"""
-
-
-# TODO: Set __all__ to explicitly define which classes this module exports...
-"""
-# The access module doesn't do this, but the built-in modules do, e.g.
 __all__ = (
-    "BIGINT",
-    "BINARY",
-...
-    "BOOLEAN",
+	'dialect',
+	'ARRAY',
+	'BIGINT',
+	'BINARY',
+	'BIT',
+	'BLOB',
+	'BOOLEAN',
+	'CHAR',
+	'CLOB',
+	'DATALINK',
+	'DATE',
+	'DECIMAL',
+#	'DISTINCT',
+	'DOUBLE',
+	'FLOAT',
+	'INTEGER',
+	'JAVA_OBJECT',
+	'LONGNVARCHAR',
+	'LONGVARBINARY',
+	'LONGVARCHAR',
+	'MULTISET',
+	'NCHAR',
+	'NCLOB',
+	'NUMERIC',
+	'NVARCHAR',
+	'OTHER',
+	'REAL',
+	'REF',
+	'REF_CURSOR',
+	'ROWID',
+	'SMALLINT',
+	'SQLXML',
+	'STRUCT',
+	'TIME',
+	'TIME_WITH_TIMEZONE',	# hsqldb's Types.java file defines this, but...
+	# 'TIME_WITH_TIME_ZONE', 	# my dialect defines this
+	'TIMESTAMP',
+	'TIMESTAMP_WITH_TIME_ZONE',
+	# 'TIMESTAMP_WITH_TIMEZONE',
+	'TINYINT',
+	'VARBINARY',
+	'VARCHAR'
 )
-"""
