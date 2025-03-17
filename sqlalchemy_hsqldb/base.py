@@ -3,6 +3,80 @@ import datetime
 from jpype import JClass
 from sqlalchemy.engine import default
 from sqlalchemy.engine import reflection
+from sqlalchemy.sql import compiler
+from sqlalchemy.sql import sqltypes
+
+#-======================================================================
+# The import statements below are a work in progress.
+# They're based on the names of HSQLDB types, which were extracted from
+# \hsqldb\hsqldb-2.7.2\hsqldb\src\org\hsqldb\types\Types.java
+#
+# Let's pretend they exist under sqlalchemy.types and attempt to import them.
+# VSCode code highlighting will then show us whether or not they exist...
+#
+# No highlight:     The type doesn't exist. Needs implementing.
+#
+# Light highlight:  The type exists. Attempt to use the default implementation.
+#
+# Dark highlight:	The type may exist but is referenced elsewhere in the file,
+#                   possibly it has been redefined.
+#
+# TODO: Remove redundant import statements
+# TODO: Clean up and remove comments after all type defs have been concluded.
+
+from sqlalchemy.types import ARRAY
+from sqlalchemy.types import BIGINT
+from sqlalchemy.types import BINARY
+# from sqlalchemy.types import BIT # no def
+from sqlalchemy.types import BLOB
+from sqlalchemy.types import BOOLEAN
+from sqlalchemy.types import CHAR
+from sqlalchemy.types import CLOB
+# from sqlalchemy.types import DATALINK # no def
+# from sqlalchemy.types import DATE # redefined in this file
+# from sqlalchemy.types import DATE as _DATE # redefined in this file
+from sqlalchemy.types import DECIMAL
+# from sqlalchemy.types import DISTINCT # no def
+from sqlalchemy.types import DOUBLE
+from sqlalchemy.types import FLOAT
+# from sqlalchemy.types import INTEGER # redefined in this file
+# from sqlalchemy.types import JAVA_OBJECT # no def
+# from sqlalchemy.types import LONGNVARCHAR # no def
+# from sqlalchemy.types import LONGVARBINARY # no def
+# from sqlalchemy.types import LONGVARCHAR # no def
+# from sqlalchemy.types import MULTISET # no def
+from sqlalchemy.types import NCHAR
+# from sqlalchemy.types import NCLOB # no def
+# from sqlalchemy.types import NULL # no def; no dialect exports NULL
+from sqlalchemy.types import NUMERIC
+from sqlalchemy.types import NVARCHAR
+# from sqlalchemy.types import OTHER # no def
+from sqlalchemy.types import REAL
+# from sqlalchemy.types import REF # no def
+# from sqlalchemy.types import REF_CURSOR # no def
+# from sqlalchemy.types import ROWID # no def
+from sqlalchemy.types import SMALLINT
+# from sqlalchemy.types import SQLXML # no def
+# from sqlalchemy.types import STRUCT # no def
+# from sqlalchemy.types import TIME # redefined in this file
+# from sqlalchemy.types import TIME_WITH_TIMEZONE # no def
+# from sqlalchemy.types import TIMESTAMP # redefined in this file
+# from sqlalchemy.types import TIMESTAMP_WITH_TIMEZONE # no def
+# from sqlalchemy.types import TINYINT # no def
+from sqlalchemy.types import VARBINARY
+from sqlalchemy.types import VARCHAR
+
+# sqlalchemy.types is a "Compatibility namespace for sqlalchemy.sql.types".
+# I haven't yet figured out why it's needed.  It seems to introduce a level of
+# indirection, creating a reference to a type of the same name. For example,
+# 'sqlalchemy.types.ARRAY' points to 'sqlalchemy.sql.sqltypes.ARRAY'.
+# 
+# The compatibility layer (sqlalchemy.types) is used when importing types into
+# a dialect.  When defining dialect specific types, these should be derived
+# from sqlalchemy.sql.sqltypes directly.
+#-===========================================================================
+
+from sqlalchemy.sql import quoted_name
 from sqlalchemy import BindTyping
 from sqlalchemy import exc
 from sqlalchemy import pool
@@ -80,57 +154,203 @@ RESERVED_WORDS_3 = set("CURDATE CURTIME NOW SYSDATE SYSTIMESTAMP TODAY".split())
 
 
 class _LargeBinary(types.BLOB):
+	"""An HSQLDB type"""
 	__visit_name__ = "BLOB"
 
-	def result_processor(self, dialect, coltype):
-		def process(value):
-			assert repr(value) == "<java object 'org.hsqldb.jdbc.JDBCBlobClient'>" # type check for Java object
-			return bytes(value.getBytes(1,int(value.length())))
-		return process
 
+# <java class 'java.lang.Boolean'>
 class HyperSqlBoolean(types.BOOLEAN):
+	"""An HSQLDB type"""
 	__visit_name__ = "BOOLEAN"
 	def result_processor(self, dialect, coltype):
 		def process(value):
 			if value == None:
 				return value
-			assert str(type(value)) == "<java class 'java.lang.Boolean'>" # type check for Java object
-			return bool(value)
+			return value
 		return process
+#- Alchemy's underlying Boolean and Enum types accept a create_constraint parameter. See migration_14.rst for details.
 
-class _TIME_WITH_TIME_ZONE(sqltypes.TIME):
-	__visit_name__ = 'TIME'
+# class CHAR(sqltypes.String):
+# 	__visit_name__ = 'CHAR'
+# 	render_bind_cast = True
+#
+# Defining CHAR here would replace the one we've already imported from
+# sqlalchemy.types.  Why does this version derive from a string and not char?
+# TODO: This version of CHAR can be removed if unused.
+
+# class CLOB(sqltypes.Text):
+# 	__visit_name__ = 'CLOB'
+# 	render_bind_cast = True
+# Defining CLOB here would replace the one we've already imported from
+# sqlalchemy.types.  Why does this version derive from a Text and not Clob?
+# TODO: This version of CLOB can be removed if unused.
+
+class DATE(sqltypes.Date):
+	"""An HSQLDB DATE type"""
+	__visit_name__ = "DATE"
 	render_bind_cast = True
 
-	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
-		# Note timezone must be set to True for TIME WITH TIME ZONE.
-		"""
-		Construct a new :class:`_hsqldb._TIME_WITH_TIME_ZONE`.
-		:param timezone: boolean.  Indicates that the TIME type should
-		use HyperSQL's ``TIME WITH TIME ZONE`` datatype.
-		"""
-		# TODO: update description above
-		super().__init__(timezone=timezone)
-
 	def bind_processor(self, dialect):
-		assert self.timezone == True, "Timezone must be True for type TIME WITH TIME ZONE"
+		def processor(value):
+			assert isinstance(value, datetime.date) or value is None, "bind processor expects datetime.date, datetime.datetime, or None" #-
+			if isinstance(value, datetime.date) == False:
+				return None
+			return dialect.dbapi.Date(value.year, value.month, value.day)
+		return processor
+	# If bind_processor is undefined or we return None, the driver will receive
+	# a datetime.date object instead of a java.sql.Date object.
+	# TODO: Why is SQLAlchemy not discovering and using dialect.dbapi.Date by default? Have I missed something?
 
+	def literal_processor(self, dialect):
+		# breakpoint() #- When is this method called and does it produce a correct result? test/test_suite.py::DateTest_hsqldb+jaydebeapi_2_7_2::test_literal
+		return super().literal_processor(dialect)
+		# TODO: impl _Date literal processor if needed.
+
+# class DECIMAL(sqltypes.DECIMAL):
+# 	__visit_name__ = 'DECIMAL'
+# 	render_bind_cast = True
+# TODO: remove if unused
+
+# class DOUBLE(sqltypes.DOUBLE):
+# 	__visit_name__ = 'DOUBLE'
+# 	render_bind_cast = True
+# TODO: remove if unused
+
+# class FLOAT(sqltypes.FLOAT):
+# 	__visit_name__ = 'FLOAT'
+# 	render_bind_cast = True
+# TODO: remove if unused
+
+class INTEGER(sqltypes.INTEGER):
+	"""An HSQLDB INTEGER type"""
+	render_bind_cast = True
+
+	def __init__(self, *args):
+		if len(args) > 0:
+			breakpoint() #-
+		super().__init__(*args)
+# PG dialect sets 'render_bind_cast = True' for many types, if not all.
+# And it's done in each of the driver files rather than the parent. Why?
+
+class BIT(sqltypes.TypeEngine):
+	"""An HSQLDB BIT type"""
+	__visit_name__ = 'BIT'
+
+	def __init__(
+		self, length: Optional[int] = None, varying: bool = False
+		) -> None:
+		if varying == True:
+			# HSQLDB requires a length for type BIT VARYING
+			length = length or 1
+
+		if length is not None and length > 1024:
+			raise ValueError('Maximum value for length is 1024.')
+		# TODO: Allow the DB to raise the error instead of doing hit here?
+
+		self.length = length
+		self.varying = varying
+
+	def literal_processor(self, dialect):
 		def process(value):
-			""" convert datetime.time to java.time.OffsetTime """
-			if value == None:
-				return value
-			assert isinstance(value, datetime.time), 'Expecting value to be a datetime.time'
-			hour = value.hour
-			minute = value.minute
-			second = value.second
-			nano = value.microsecond * 1000
-			timedelta = value.tzinfo.utcoffset(None)
-			JOffsetTime = JClass('java.time.OffsetTime', False)
-			JZoneOffset = JClass('java.time.ZoneOffset')
-			return JOffsetTime.of(hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
+			if type(value) == bool:
+				value = "B'%s'" % int(value)
+			else:
+				value = "B'%s'" % ' '.join([bin(x).removeprefix('0b') for x in value])
+			return value
 		return process
 
-class _TIME(sqltypes.TIME):
+# from sqlalchemy.types import DATALINK # no def
+class DATALINK(sqltypes.TypeEngine):
+	"""An HSQLDB DATALINK type"""
+	__visit_name__ = 'DATALINK'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import DISTINCT # no def
+class DISTINCT():
+	"""An HSQLDB DISTINCT type"""
+	__visit_name__ = 'DISTINCT'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import JAVA_OBJECT # no def
+class JAVA_OBJECT():
+	"""An HSQLDB JAVA_OBJECT type"""
+	__visit_name__ = 'JAVA_OBJECT'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import LONGNVARCHAR # no def
+class LONGNVARCHAR():
+	"""An HSQLDB LONGNVARCHAR type"""
+	__visit_name__ = 'LONGNVARCHAR'
+	def __init__(self, *args):
+		raise NotImplementedError
+
+# from sqlalchemy.types import LONGVARBINARY # no def
+class LONGVARBINARY():
+	"""An HSQLDB LONGVARBINARY type"""
+	__visit_name__ = 'LONGVARBINARY'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import LONGVARCHAR # no def
+class LONGVARCHAR():
+	"""An HSQLDB LONGVARCHAR type"""
+	__visit_name__ = 'LONGVARCHAR'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import MULTISET # no def
+class MULTISET():
+	"""An HSQLDB MULTISET type"""
+	__visit_name__ = 'MULTISET'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+class NCLOB(sqltypes.Text):
+	"""An HSQLDB NCLOB type"""
+	__visit_name__ = 'NCLOB'
+
+class OTHER():
+	"""An HSQLDB OTHER type"""
+	__visit_name__ = 'OTHER'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+class REF():
+	"""An HSQLDB REF type"""
+	__visit_name__ = 'REF'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+class REF_CURSOR():
+	"""An HSQLDB REF_CURSOR type"""
+	__visit_name__ = 'REF_CURSOR'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import ROWID # no def; oracle also has this
+class ROWID(sqltypes.TypeEngine):
+	"""An HSQLDB ROWID type"""
+	__visit_name__ = 'ROWID'
+
+# from sqlalchemy.types import SQLXML # no def
+class SQLXML():
+	"""An HSQLDB SQLXML type"""
+	__visit_name__ = 'SQLXML'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+# from sqlalchemy.types import STRUCT # no def
+class STRUCT():
+	"""An HSQLDB STRUCT type"""
+	__visit_name__ = 'STRUCT'
+	def __init__(self, *args) -> None:
+		raise NotImplementedError
+
+class TIME(sqltypes.TIME):
+	"""An HSQLDB TIME type"""
 	__visit_name__ = 'TIME'
 	render_bind_cast = True
 
@@ -156,29 +376,66 @@ class _TIME(sqltypes.TIME):
 
 	def bind_processor(self, dialect):
 		def process(value):
-			assert isinstance(value, datetime.time), 'Expecting a datetime.time object'
-
-			if value.microsecond % 1000 > 0:
-				print('# Warning: potential precision loss while converting from microseconds to milliseconds')
-			# TODO: How best to show potential precision loss, log warning?
-
-			return dialect.dbapi.Time(
-				value.hour,
-				value.minute,
-				value.second
-				)
+			if value is None:
+				return None
+			assert isinstance(value, datetime.time) #-
+			assert hasattr(value, 'microsecond') and value.microsecond == 0 #-
+			# Although the params for dbapi.Time do not include microseconds,
+			# we can store microseconds inside a java.sql.time object if needed
+			return dialect.dbapi.Time(value.hour, value.minute, value.second)
 		return process
 		# TODO: test with other timezone / dst combinations, like -4 hrs UTC Atlantic time (Canada), with and without DST.
 
-class INTEGER(sqltypes.INTEGER):
+# from sqlalchemy.types import TIME_WITH_TIMEZONE # no def
+#- class TIME_WITH_TIMEZONEx():
+#- 	__visit_name__ = 'TIME_WITH_TIMEZONEx'
+#- 	def __init__(self, *args):
+#- 		raise NotImplementedError
+#- TODO: Which is correct, TIME_WITH_TIMEZONE or TIME_WITH_TIME_ZONE?	
+
+class TIME_WITH_TIMEZONE(sqltypes.TIME):
+	"""An HSQLDB TIME_WITH_TIMEZONE type"""
+	__visit_name__ = 'TIME'
+	#- Visit methods are compiler methods. When TIME(timezone=True) is specified, we want to emit "TIME WITH TIME ZONE"
 	render_bind_cast = True
 
-	def __init__(self, *args):
-		if len(args) > 0:
-			breakpoint() #-
-		super().__init__(*args)
+	def __init__(self, timezone: bool = True, precision: Optional[int] = None):
+		#- Note timezone must be set to True for TIME WITH TIME ZONE.
+		"""
+		Construct a new :class:`_hsqldb._TIME_WITH_TIME_ZONE`.
+		:param timezone: boolean.  Indicates that the TIME type should
+		use HyperSQL's ``TIME WITH TIME ZONE`` datatype.
+		"""
+		# TODO: update description above
+		super().__init__(timezone=timezone)
+
+	def bind_processor(self, dialect):
+		#- sends datatype to database
+		assert self.timezone == True, "Timezone must be True for type TIME WITH TIME ZONE"
+
+		def process(value):
+			""" convert datetime.time to java.time.OffsetTime """
+			# <java class 'java.time.OffsetTime'>
+			if value == None:
+				return value
+			assert isinstance(value, datetime.time), 'Expecting value to be a datetime.time'
+			hour = value.hour
+			minute = value.minute
+			second = value.second
+			nano = value.microsecond * 1000
+			timedelta = value.tzinfo.utcoffset(None)
+			JOffsetTime = JClass('java.time.OffsetTime', False)
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/OffsetTime.html
+			JZoneOffset = JClass('java.time.ZoneOffset')
+			#- https://docs.oracle.com/javase/8/docs/api/java/time/ZoneOffset.html
+			return JOffsetTime.of(hour, minute, second, nano, JZoneOffset.ofTotalSeconds(timedelta.seconds))
+		return process
+		#- TIME's bind processor is returning dialect.dbapi.Time, which is where I think the conversion should be performed.
+		#- TIME_WITH_TIMEZONE is performing the conversion here.
+
 
 class TIMESTAMP(sqltypes.TIMESTAMP):
+	"""An HSQLDB TIMESTAMP type"""
 	__visit_name__ = 'TIMESTAMP'
 	render_bind_cast = True
 
@@ -193,20 +450,24 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 
 	def bind_processor(self, dialect):
 		def processor(value):
-			if type(value) != datetime.datetime:
+			if value is None:
 				return None
-			year = value.year - 1900
-			month = value.month - 1
-			day = value.day
-			hour = value.hour
-			minute = value.minute
-			second = value.second
-			nano = value.microsecond * 1000
-			JTimestamp = JClass('java.sql.Timestamp', False)
-			return JTimestamp(year, month, day, hour, minute, second, nano)
+			assert isinstance(value, datetime.datetime)
+			return dialect.dbapi.Timestamp(
+				value.year,	value.month, value.day, value.hour, value.minute,
+				value.second, value.microsecond * 1000)
 		return processor
 
-class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
+
+# from sqlalchemy.types import TIMESTAMP_WITH_TIMEZONE # no def
+# class TIMESTAMP_WITH_TIMEZONE():
+# 	__visit_name__ = 'TIMESTAMP_WITH_TIMEZONE'
+# 	def __init__(self, *args):
+# 		raise NotImplementedError
+# TODO: Which is correct, TIMESTAMP_WITH_TIMEZONE or TIMESTAMP_WITH_TIME_ZONE?	
+
+class TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
+	"""An HSQLDB TIMESTAMP_WITH_TIME_ZONE type"""
 	__visit_name__ = 'TIMESTAMP'
 	render_bind_cast = True
 
@@ -236,44 +497,97 @@ class _TIMESTAMP_WITH_TIME_ZONE(sqltypes.TIMESTAMP):
 	# This class is required so we can set timezone to True, and have the bind
 	# processor return an OffsetDateTime object.
 
-class _Date(sqltypes.Date):
-	__visit_name__ = "DATE"
-	render_bind_cast = True
-
-	def bind_processor(self, dialect):
-		def processor(value):
-			assert isinstance(value, datetime.date) or value is None, "_Date bind processor expects datetime.date, datetime.datetime, or None" #-
-			if isinstance(value, datetime.date) == False:
-				return None
-			year = value.year - 1900
-			month = value.month - 1
-			day = value.day
-			JDate = JClass('java.sql.Date')
-			return JDate(year, month, day)
-		return processor
+# from sqlalchemy.types import TINYINT # no def; mssql and mysql have a TINYINT
+class TINYINT(sqltypes.Integer):
+	"""An HSQLDB TINYINT type"""
+	__visit_name__ = 'TINYINT'
 
 colspecs = {
 	sqltypes.LargeBinary: _LargeBinary,
 	sqltypes.Boolean: HyperSqlBoolean,
-	sqltypes.Date: _Date,
+	sqltypes.Date: DATE,
 	sqltypes.DateTime: TIMESTAMP, 	# How to separate TIMESTAMPS with and without timezones?
-	sqltypes.Time: _TIME,
+	sqltypes.Time: TIME,
 	sqltypes.Integer: INTEGER,
 }
 
 ischema_names = {
-	"BLOB": sqltypes.BLOB,
-	"BIGINT": sqltypes.BIGINT,
-	"CHARACTER": sqltypes.CHAR,
-	"DOUBLE" : sqltypes.DOUBLE,
-	"INTEGER": sqltypes.INTEGER,
+	'ARRAY': sqltypes.ARRAY, 
+	'BIGINT': sqltypes.BIGINT,
+	'BINARY': sqltypes.BINARY,
+	'BIT': BIT,
+
+	# TODO: Mapping BLOB to sqltypes.BLOB is probably the correct way to do it. 
+	# Swap out the mapping to JDBCBlobClient and test again to verify it still works.
+	#
+	# WIP: trying swapping out JDBCBlobClient for BLOB...
+	# "BLOB": JDBCBlobClient,
+	'BLOB': sqltypes.BLOB,
+
+	# TODO: try mapping BOOLEAN to sqltypes.BOOLEAN. Test and verify it works.
+	# "BOOLEAN": HyperSqlBoolean,
+	'BOOLEAN': sqltypes.BOOLEAN,
+
+	'CHAR': sqltypes.CHAR,
+	"CHARACTER": sqltypes.CHAR, # CHARACTER was in the previous ischema_names. TODO: what happens if it's removed?
+
+	'CLOB': sqltypes.CLOB,
+	'DATALINK': DATALINK,
+
+	"DATE": DATE,
+	# 'DATE': sqltypes.DATE,
+
+	# "DATETIME": TIMESTAMP	# Don't uncomment. DATETIME is an alias for TIMESTAMP. Although it can appear in DDL, a TIMESTAMP field is created.
+
+	'DECIMAL': sqltypes.DECIMAL,
+	# 'DISTINCT': DISTINCT, # None of the other dialects include DISTINCT here.
+
+	"DOUBLE" : sqltypes.DOUBLE, # 64 bit precision floating point number
+
+	'FLOAT': sqltypes.FLOAT,
+
+	'INTEGER': INTEGER,
+
+	'JAVA_OBJECT': JAVA_OBJECT,
+	'LONGNVARCHAR': LONGNVARCHAR,
+	'LONGVARBINARY': LONGVARBINARY,
+	'LONGVARCHAR': LONGVARCHAR,
+	'MULTISET': MULTISET,
+	'NCHAR': sqltypes.NCHAR,
+	'NCLOB': NCLOB,
 	"NUMERIC": sqltypes.NUMERIC,
-	"VARCHAR": sqltypes.VARCHAR,
-	"DATE": _Date,
-	"TIME": _TIME,
-	"TIME WITH TIME ZONE": _TIME_WITH_TIME_ZONE,
+	'NVARCHAR': sqltypes.NVARCHAR,
+	'OTHER': OTHER,
+	'REAL': sqltypes.REAL,
+	'REF': REF,
+	'REF_CURSOR': REF_CURSOR,
+	'ROWID': ROWID,
+	'SMALLINT': sqltypes.SMALLINT,
+	'SQLXML': SQLXML,
+	'STRUCT': STRUCT,
+
+	"TIME": TIME,
+	"TIME WITH TIME ZONE": TIME_WITH_TIMEZONE,
+
+	'TIME': TIME,
+	'TIME_WITH_TIMEZONE': TIME_WITH_TIMEZONE,	# hsqldb defines this
+
 	"TIMESTAMP": TIMESTAMP,
-	"TIMESTAMP WITH TIME ZONE": _TIMESTAMP_WITH_TIME_ZONE,
+	"TIMESTAMP WITH TIME ZONE": TIMESTAMP_WITH_TIME_ZONE,
+	# 'TIMESTAMP_WITH_TIMEZONE': TIMESTAMP_WITH_TIME_ZONE,
+
+# Types.java defines:
+#	public static final int SQL_TIMESTAMP_WITH_TIME_ZONE  = 95;
+#	public static final int TIMESTAMP_WITH_TIMEZONE = 2014;
+# 	TIMESTAMP WITH TIME ZONE					# HyperSQL Database Manager
+# 	TIMESTAMP WITH TIME ZONE					# HSQLDB docs
+#	CONVERT(<value>, SQL_TIMESTAMP)				# JSN_notes.md:1312 prepend 'SQL_ for synthetic types
+
+	'TINYINT': TINYINT,
+	'VARBINARY': sqltypes.VARBINARY,
+	"VARCHAR": sqltypes.VARCHAR,
+
+	# "INTERVAL DAY TO SECOND": INTERVAL, # Copied from Oracle?
 }
   # TODO: ensure class names follow the naming convension
 
@@ -743,6 +1057,16 @@ class HyperSqlDDLCompiler(compiler.DDLCompiler):
 	# TODO: implement support for drop.cascade on tables, if it's actually needed and doable.
 
 class HyperSqlTypeCompiler(compiler.GenericTypeCompiler):
+
+	def visit_BIT(self, type_, **kw):
+		if type_.varying == True:
+			assert type_.length is not None, 'BIT VARYING must have a length'
+			compiled = "BIT VARYING(%d)" % type_.length
+		else:
+			compiled = "BIT"
+			if type_.length is not None and type_.length > 0:
+				compiled += "(%d)" % type_.length
+		return compiled
 
 	def visit_TIMESTAMP(self, type_, **kw):
 		if type_.timezone == True:

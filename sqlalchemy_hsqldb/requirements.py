@@ -212,6 +212,18 @@ class HyperSqlRequirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def bit_type(self):
+        """Target database implements BIT type."""
+
+        return exclusions.open()
+
+    @property
+    def nullable_bits(self):
+        """Target database allows BIT columns to store NULL."""
+
+        return exclusions.open()
+
+    @property
     def nullable_booleans(self):
         """Target database allows boolean columns to store NULL."""
         return exclusions.open()
