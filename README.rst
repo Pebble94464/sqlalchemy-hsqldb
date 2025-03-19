@@ -129,13 +129,11 @@ will need to update some parameters to match your configuration.
 If all goes well you should see a success message displayed, otherwise an error
 message will provide some hint as to why it's not working.
 
-<!--
-Known issues
-------------
-
-This initial release contains some debug code that will cause execution to
-halt. Due to be removed in the next release.
--->
+..
+	Known issues
+	------------
+	This initial release contains some debug code that will cause execution to
+	halt. Due to be removed in the next release.
 
 Troubleshooting
 ---------------
