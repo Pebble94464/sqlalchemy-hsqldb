@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="sqlalchemy-hsqldb",
-    version="0.1.0",
+    version="0.2.0",
     description="SQLAlchemy dialect for HyperSQL 2.0 (HSQLDB)",
     long_description=open('README.rst').read(),
     long_description_content_type="text/x-rst",

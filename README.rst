@@ -9,10 +9,13 @@ The objective of this project is to enable
 `SQLAlchemy <https://www.sqlalchemy.org/>`_ support for
 `HyperSQL <https://hsqldb.org/>`_ 2.0 databases (a.k.a. HSQLDB).
 
-As an initial release this version has limitations and still contains much
-debug code. However the great news is "It works on my Windows based system",
-currently passing about 38 percent of the dialect test suite.
-Testing on other environments will follow in due course.
+It's currently in the early stages of development. If you should encounter any
+blocking issues, please do get in touch and/or submit a bug report. This will
+help prioritise which issues to fix first.
+
+The module is being developed and tested on a Windows based system.
+As a rough measure of progress, about 38% of SQLAlchemy's tests for dialects
+are completing before the first failure is encountered.
 
 This project depends on a modified version of the
 `JayDeBeApi <https://github.com/baztian/jaydebeapi>`_ module to provide
@@ -126,11 +129,13 @@ will need to update some parameters to match your configuration.
 If all goes well you should see a success message displayed, otherwise an error
 message will provide some hint as to why it's not working.
 
+<!--
 Known issues
 ------------
 
 This initial release contains some debug code that will cause execution to
 halt. Due to be removed in the next release.
+-->
 
 Troubleshooting
 ---------------
@@ -159,5 +164,9 @@ If you think you've found a bug please feel welcome to submit a report via GitHu
 
 Changelog
 ---------
-	0.1.0	initial release
+
+	0.1.0	Initial release
+
+	0.2.0	Defined a list of symbols to be exported by the module.
+			BIT type implemented.
 
