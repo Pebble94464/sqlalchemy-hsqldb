@@ -165,6 +165,7 @@ Changelog
 
 	0.1.0	Initial release
 
-	0.2.0	Defined a list of symbols to be exported by the module.
-			BIT type implemented.
+	0.2.0	Defined a list of symbols to be exported by the module. BIT type implemented.
+
+	0.2.1	Fix missing entry point.
 

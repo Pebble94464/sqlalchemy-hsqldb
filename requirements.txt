@@ -3,5 +3,5 @@ jaydebeapi-hsqldb==0.0.3
 jpype1==1.5.2
 packaging==24.2
 SQLAlchemy==2.0.39
-sqlalchemy-hsqldb==0.2.0
+sqlalchemy-hsqldb==0.2.1
 typing_extensions==4.12.2
