@@ -33,6 +33,7 @@ setup(
     zip_safe=False,
     entry_points={
         "sqlalchemy.dialects": [
+            "hsqldb = sqlalchemy_hsqldb.base:HyperSqlDialect",
             "hsqldb.jaydebeapi = sqlalchemy_hsqldb.jaydebeapi:HyperSqlDialect_jaydebeapi",
         ]
     },
