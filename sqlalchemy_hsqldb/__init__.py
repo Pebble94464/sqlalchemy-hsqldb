@@ -1,3 +1,49 @@
+
+__all__ = [
+	'dialect',
+	'ARRAY',
+	'BIGINT',
+	'BINARY',
+	'BIT',
+	'BLOB',
+	'BOOLEAN',
+	'CHAR',
+	'CLOB',
+	'DATALINK',
+	'DATE',
+	'DECIMAL',
+#	'DISTINCT',
+	'DOUBLE',
+	'FLOAT',
+	'INTEGER',
+	'JAVA_OBJECT',
+	'LONGNVARCHAR',
+	'LONGVARBINARY',
+	'LONGVARCHAR',
+	'MULTISET',
+	'NCHAR',
+	'NCLOB',
+	'NUMERIC',
+	'NVARCHAR',
+	'OTHER',
+	'REAL',
+	'REF',
+	'REF_CURSOR',
+	'ROWID',
+	'SMALLINT',
+	'SQLXML',
+	'STRUCT',
+	'TIME',
+	'TIME_WITH_TIMEZONE',	# hsqldb's Types.java file defines this, but...
+	# 'TIME_WITH_TIME_ZONE', 	# my dialect defines this
+	'TIMESTAMP',
+	'TIMESTAMP_WITH_TIME_ZONE',
+	# 'TIMESTAMP_WITH_TIMEZONE',
+	'TINYINT',
+	'VARBINARY',
+	'VARCHAR'
+]
+
 from . import base
 
 # There are a couple of ways we can import jaydebeapi.py here...
@@ -59,48 +105,3 @@ from .base import TIMESTAMP_WITH_TIME_ZONE
 from .base import TINYINT
 from .base import VARBINARY
 from .base import VARCHAR
-
-__all__ = (
-	'dialect',
-	'ARRAY',
-	'BIGINT',
-	'BINARY',
-	'BIT',
-	'BLOB',
-	'BOOLEAN',
-	'CHAR',
-	'CLOB',
-	'DATALINK',
-	'DATE',
-	'DECIMAL',
-#	'DISTINCT',
-	'DOUBLE',
-	'FLOAT',
-	'INTEGER',
-	'JAVA_OBJECT',
-	'LONGNVARCHAR',
-	'LONGVARBINARY',
-	'LONGVARCHAR',
-	'MULTISET',
-	'NCHAR',
-	'NCLOB',
-	'NUMERIC',
-	'NVARCHAR',
-	'OTHER',
-	'REAL',
-	'REF',
-	'REF_CURSOR',
-	'ROWID',
-	'SMALLINT',
-	'SQLXML',
-	'STRUCT',
-	'TIME',
-	'TIME_WITH_TIMEZONE',	# hsqldb's Types.java file defines this, but...
-	# 'TIME_WITH_TIME_ZONE', 	# my dialect defines this
-	'TIMESTAMP',
-	'TIMESTAMP_WITH_TIME_ZONE',
-	# 'TIMESTAMP_WITH_TIMEZONE',
-	'TINYINT',
-	'VARBINARY',
-	'VARCHAR'
-)
